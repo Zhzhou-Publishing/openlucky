@@ -21,7 +21,7 @@ pip install -r requirements.txt
 ### 处理负片
 
 ```bash
-python negative_film.py -i input.tif -o output.jpg -c config.yaml -p kodak_ultramax_400
+python cmd/openlucky.py film -i input.tif -o output.jpg -c config.yaml -p kodak_ultramax_400
 ```
 
 ### 转换 TIFF 到 JPEG
@@ -29,12 +29,14 @@ python negative_film.py -i input.tif -o output.jpg -c config.yaml -p kodak_ultra
 如果需要先将 TIFF 文件转换为 JPEG：
 
 ```bash
-python tiff_to_jpeg.py -i input.tif -o output.jpg
+python cmd/openlucky.py tiff2jpeg -i input.tif -o output.jpg
 ```
 
 ## 命令行参数
 
-### negative_film.py
+### openlucky.py film
+
+胶片负片转正处理（Kodak UltraMax 400 优化）
 
 | 参数 | 简写 | 必需 | 说明 |
 |------|------|------|------|
@@ -43,7 +45,9 @@ python tiff_to_jpeg.py -i input.tif -o output.jpg
 | `--config` | `-c` | ✅ | 预设配置文件（YAML）路径 |
 | `--preset` | `-p` | ❌ | 使用的预设名称（默认：kodak_ultramax_400） |
 
-### tiff_to_jpeg.py
+### openlucky.py tiff2jpeg
+
+TIFF 转 JPEG 格式转换
 
 | 参数 | 简写 | 必需 | 说明 |
 |------|------|------|------|
@@ -101,7 +105,7 @@ presets:
 使用自定义预设：
 
 ```bash
-python negative_film.py -i input.tif -o output.jpg -c config.yaml -p my_custom_film
+python cmd/openlucky.py film -i input.tif -o output.jpg -c config.yaml -p my_custom_film
 ```
 
 ## 技术原理
