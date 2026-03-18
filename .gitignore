@@ -7,6 +7,9 @@ bin/
 # Build directory
 build/
 
+# Build Installer
+*Setup.exe
+
 # Python
 __pycache__/
 *.py[cod]
