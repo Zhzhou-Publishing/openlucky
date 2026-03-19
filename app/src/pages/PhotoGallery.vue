@@ -25,7 +25,7 @@
         v-for="(image, index) in images"
         :key="index"
         class="image-item"
-        @click="openImage(image)"
+        @contextmenu.prevent="openImage(image)"
       >
         <img :src="image.url" :alt="image.name" class="thumbnail" loading="lazy" />
         <div class="image-info">
