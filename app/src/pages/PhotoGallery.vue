@@ -146,6 +146,9 @@ onMounted(() => {
   min-height: 100vh;
   background: #f5f5f5;
   padding: 20px;
+  padding-bottom: 140px;
+  overflow-y: auto;
+  height: calc(100vh - 100px);
 }
 
 .header {
@@ -402,9 +405,5 @@ onMounted(() => {
   outline: none;
   border-color: #42b883;
   box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.1);
-}
-
-.gallery-grid {
-  padding-bottom: 80px;
 }
 </style>
