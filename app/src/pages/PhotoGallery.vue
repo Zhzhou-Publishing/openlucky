@@ -17,7 +17,7 @@
     <div v-else-if="images.length === 0" class="empty-state">
       <p class="empty-icon">📷</p>
       <h2>No Images Found</h2>
-      <p>No image files (jpg, jpeg, png, gif, webp) were found in the selected directory.</p>
+      <p>No image files (jpg, jpeg, png, gif, webp, tiff) were found in the selected directory.</p>
     </div>
 
     <div v-else class="gallery-grid">
@@ -31,6 +31,18 @@
         <div class="image-info">
           <p class="image-name">{{ image.name }}</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Bottom Menu Bar -->
+    <div class="bottom-menu">
+      <div class="menu-item">
+        <label class="menu-label">Preset:</label>
+        <select v-model="selectedPreset" class="preset-select">
+          <option v-for="preset in presets" :key="preset.value" :value="preset.value">
+            {{ preset.label }}
+          </option>
+        </select>
       </div>
     </div>
 
@@ -55,6 +67,16 @@ const route = useRoute()
 const images = ref([])
 const isLoading = ref(true)
 const selectedImage = ref(null)
+const selectedPreset = ref('lucky_c200_2025')
+
+const presets = [
+  { value: 'lucky_c200_2025', label: 'Lucky C200 (2025)' },
+  { value: 'fujifilm_c200', label: 'Fujifilm C200' },
+  { value: 'fujifilm_c400', label: 'Fujifilm C400' },
+  { value: 'kodak_colorplus_200', label: 'Kodak ColorPlus 200 (Kodak Alaris)' },
+  { value: 'kodak_gold_200', label: 'Kodak Gold 200 (Kodak Alaris)' },
+  { value: 'kodak_ultramax_400', label: 'Kodak Ultramax 400 (Kodak Alaris)' }
+]
 
 const directoryPath = computed(() => route.query.path || '')
 
@@ -242,7 +264,7 @@ onMounted(() => {
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 20px;
 }
 
@@ -262,7 +284,7 @@ onMounted(() => {
 
 .thumbnail {
   width: 100%;
-  height: 200px;
+  height: 100px;
   object-fit: cover;
   display: block;
 }
@@ -332,5 +354,57 @@ onMounted(() => {
   color: white;
   text-align: center;
   font-size: 14px;
+}
+
+.bottom-menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: center;
+  z-index: 100;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-label {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.preset-select {
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  min-width: 180px;
+}
+
+.preset-select:hover {
+  border-color: #42b883;
+}
+
+.preset-select:focus {
+  outline: none;
+  border-color: #42b883;
+  box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.1);
+}
+
+.gallery-grid {
+  padding-bottom: 80px;
 }
 </style>

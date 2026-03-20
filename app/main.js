@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const fs = require('fs')
 const path = require('path')
+const sharp = require('sharp')
 
 function createWindow () {
   // 创建浏览器窗口
@@ -52,7 +53,8 @@ function createWindow () {
   ipcMain.on('get-images', async (event, directoryPath) => {
     try {
       // Supported image extensions
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff']
+      const tiffFormats = ['.tif', '.tiff']
 
       // Read files in the directory
       const files = fs.readdirSync(directoryPath)
@@ -63,15 +65,39 @@ function createWindow () {
         return imageExtensions.includes(ext) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
+      // Create temporary thumbnails directory
+      const tempDir = path.join(app.getPath('temp'), 'photo-gallery-thumbnails')
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true })
+      }
+
       // Create image objects with URLs
-      const images = imageFiles.map(file => {
+      const images = await Promise.all(imageFiles.map(async (file) => {
         const fullPath = path.join(directoryPath, file)
+        const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
+
+        let imageUrl = `file://${fullPath}`
+
+        // Generate thumbnail for tif/tiff files
+        if (tiffFormats.includes(ext)) {
+          try {
+            const thumbnailPath = path.join(tempDir, `${path.basename(file, ext)}.jpg`)
+            await sharp(fullPath)
+              .resize(300, 200, { fit: 'cover' })
+              .jpeg({ quality: 80 })
+              .toFile(thumbnailPath)
+            imageUrl = `file://${thumbnailPath}`
+          } catch (err) {
+            console.error('Error generating thumbnail for', file, err)
+          }
+        }
+
         return {
           name: file,
           path: fullPath,
-          url: `file://${fullPath}`
+          url: imageUrl
         }
-      })
+      }))
 
       win.webContents.send('images-loaded', {
         images: images
