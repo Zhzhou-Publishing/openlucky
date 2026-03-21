@@ -1,26 +1,63 @@
 {
-  "name": "app",
-  "version": "1.0.0",
+  "name": "OpenLuckyApp",
+  "version": "1.1.0-pre",
   "description": "",
   "main": "main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "electron": "electron .",
-    "start": "npm run build && electron ."
+    "start": "npm run build && electron .",
+    "build:win": "npm run build && electron-builder --win --x64",
+    "build:win:portable": "npm run build && electron-builder --win portable --x64"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "ZhZhou",
+  "license": "Apache License 2.0",
   "type": "commonjs",
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.5",
     "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
     "vite": "^8.0.1"
   },
   "dependencies": {
     "sharp": "^0.34.5",
     "vue": "^3.5.30",
     "vue-router": "^5.0.3"
+  },
+  "build": {
+    "appId": "com.openlucky.desktop",
+    "productName": "OpenLucky",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "main.js",
+      "dist/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
