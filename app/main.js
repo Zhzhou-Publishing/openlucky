@@ -20,8 +20,10 @@ function createWindow() {
   // 加载应用的 index.html
   win.loadFile('dist/index.html')
 
-  // 打开开发者工具
-  win.webContents.openDevTools()
+  // 只在开发模式下打开开发者工具
+  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    win.webContents.openDevTools()
+  }
 
   // Handle directory selection request
   ipcMain.on('select-directory', async () => {
