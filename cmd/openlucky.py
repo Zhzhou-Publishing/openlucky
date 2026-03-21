@@ -147,17 +147,14 @@ def main():
         fail_count = 0
 
         for i, input_file in enumerate(image_files, 1):
-            print(f"[{i}/{len(image_files)}] 处理: {input_file.name}")
+            print(f"[{i}/{len(image_files)}] dealing negative film: {input_file.name}")
             try:
                 output_file = output_dir / input_file.name
                 process_film(input_file, output_file, config_file, args.preset)
-                print(f"  ✓ 完成: {output_file}")
                 success_count += 1
             except Exception as e:
-                print(f"  ✗ 失败: {e}")
+                print(e)
                 fail_count += 1
-
-        print(f"\n处理完成: 成功 {success_count} 个, 失败 {fail_count} 个")
 
     elif args.command == 'tiff2jpeg':
         convert_tiff_to_jpeg(args.input, args.output)
