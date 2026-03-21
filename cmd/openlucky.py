@@ -2,8 +2,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from process_film import process_film
-from tiff_to_jpeg import convert_tiff_to_jpeg
+from lib.process_film import process_film
+from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 
 
 # 支持的图片扩展名
