@@ -133,8 +133,9 @@ function createWindow() {
 
       // Spawn the process
       const process = spawn(command, args, {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: true,
+        windowsHide: true
       })
 
       let output = ''

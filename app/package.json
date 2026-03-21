@@ -28,7 +28,7 @@
   },
   "build": {
     "appId": "com.openlucky.desktop",
-    "productName": "OpenLucky",
+    "productName": "OpenLuckyApp",
     "directories": {
       "output": "dist-electron"
     },
