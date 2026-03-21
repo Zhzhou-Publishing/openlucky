@@ -2,8 +2,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from lib.process_film import process_film
-from lib.tiff_to_jpeg import convert_tiff_to_jpeg
+from process_film import process_film
+from tiff_to_jpeg import convert_tiff_to_jpeg
 
 
 # 支持的图片扩展名
@@ -12,12 +12,12 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
 
 def find_config_file():
     """
-    查找配置文件，按以下顺序尝试：
-    1. 当前工作目录的 config.yaml 或 config.yml
-    2. 用户家目录下的 .openlucky/config.yaml 或 .openlucky/config.yml
+    Search for configuration file, try in the following order:
+    1. config.yaml or config.yml in current working directory
+    2. .openlucky/config.yaml or .openlucky/config.yml in user home directory
 
     Returns:
-        Path: 找到的配置文件路径，如果都没找到则返回 None
+        Path: Found configuration file path, or None if not found
     """
     # 尝试当前工作目录
     cwd = Path.cwd()
@@ -43,29 +43,29 @@ def find_config_file():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="OpenLucky - 胶片负片处理工具")
-    subparsers = parser.add_subparsers(dest='command', help='可用的子命令')
+    parser = argparse.ArgumentParser(description="OpenLucky - Film Negative Processing Tool")
+    subparsers = parser.add_subparsers(dest='command', help='Available subcommands')
 
-    # film 子命令
-    film_parser = subparsers.add_parser('film', help='胶片负片转正处理 (Kodak UltraMax 400 优化)')
-    film_parser.add_argument('--input', '-i', required=True, help='输入负片文件路径 (支持 .tif, .tiff, .jpg)')
-    film_parser.add_argument('--output', '-o', required=True, help='输出文件保存路径')
-    film_parser.add_argument('--config', '-c', required=False, help='预设配置文件 (yaml) 路径 (留空则自动查找)')
+    # film subcommand
+    film_parser = subparsers.add_parser('film', help='Film negative to positive conversion (Kodak UltraMax 400 optimization)')
+    film_parser.add_argument('--input', '-i', required=True, help='Input negative film file path (supports .tif, .tiff, .jpg)')
+    film_parser.add_argument('--output', '-o', required=True, help='Output file save path')
+    film_parser.add_argument('--config', '-c', required=False, help='Preset configuration file (yaml) path (auto-search if empty)')
     film_parser.add_argument('--preset', '-p', default='kodak_ultramax_400',
-                             help='使用的预设名称 (默认: kodak_ultramax_400)')
+                             help='Preset name to use (default: kodak_ultramax_400)')
 
-    # filmbatch 子命令
-    filmbatch_parser = subparsers.add_parser('filmbatch', help='批量处理胶片负片')
-    filmbatch_parser.add_argument('--input', '-i', required=True, help='输入图片目录')
-    filmbatch_parser.add_argument('--output', '-o', required=False, help='输出图片目录 (默认: 输入目录下的 output 子目录)')
-    filmbatch_parser.add_argument('--config', '-c', required=False, help='预设配置文件 (yaml) 路径 (留空则自动查找)')
+    # filmbatch subcommand
+    filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
+    filmbatch_parser.add_argument('--input', '-i', required=True, help='Input image directory')
+    filmbatch_parser.add_argument('--output', '-o', required=False, help='Output image directory (default: output subdirectory in input directory)')
+    filmbatch_parser.add_argument('--config', '-c', required=False, help='Preset configuration file (yaml) path (auto-search if empty)')
     filmbatch_parser.add_argument('--preset', '-p', default='kodak_ultramax_400',
-                                   help='使用的预设名称 (默认: kodak_ultramax_400)')
+                                   help='Preset name to use (default: kodak_ultramax_400)')
 
-    # tiff2jpeg 子命令
-    tiff_parser = subparsers.add_parser('tiff2jpeg', help='TIFF 转 JPEG 格式转换')
-    tiff_parser.add_argument('--input', '-i', required=True, help='输入 TIFF 文件路径')
-    tiff_parser.add_argument('--output', '-o', required=True, help='输出 JPEG 文件路径')
+    # tiff2jpeg subcommand
+    tiff_parser = subparsers.add_parser('tiff2jpeg', help='TIFF to JPEG format conversion')
+    tiff_parser.add_argument('--input', '-i', required=True, help='Input TIFF file path')
+    tiff_parser.add_argument('--output', '-o', required=True, help='Output JPEG file path')
 
     args = parser.parse_args()
 
@@ -73,25 +73,25 @@ def main():
         input_file = Path(args.input)
         output_file = Path(args.output)
 
-        # 如果未指定配置文件，则自动查找
+        # If no config file specified, auto-search
         if args.config is None:
-            print("未指定配置文件，正在自动查找...")
+            print("No config file specified, auto-searching...")
             config_file = find_config_file()
             if config_file is None:
-                print("错误: 未找到配置文件。请在以下位置之一创建 config.yaml 或 config.yml：")
-                print("  1. 当前工作目录")
-                print("  2. 用户家目录下的 .openlucky 目录 (例如 C:\\Users\\YourName\\.openlucky)")
+                print("Error: Configuration file not found. Please create config.yaml or config.yml in one of the following locations:")
+                print("  1. Current working directory")
+                print("  2. .openlucky directory in user home directory (e.g. C:\\Users\\YourName\\.openlucky)")
                 sys.exit(1)
-            print(f"找到配置文件: {config_file}")
+            print(f"Found config file: {config_file}")
         else:
             config_file = Path(args.config)
 
         if not input_file.exists():
-            print(f"错误: 输入文件不存在: {input_file}")
+            print(f"Error: Input file does not exist: {input_file}")
             sys.exit(1)
 
         if not config_file.exists():
-            print(f"错误: 配置文件不存在: {config_file}")
+            print(f"Error: Configuration file does not exist: {config_file}")
             sys.exit(1)
 
         process_film(input_file, output_file, config_file, args.preset)
@@ -100,54 +100,54 @@ def main():
         input_dir = Path(args.input)
         output_dir = Path(args.output) if args.output else input_dir / 'output'
 
-        # 验证输入目录
+        # Verify input directory
         if not input_dir.exists():
-            print(f"错误: 输入目录不存在: {input_dir}")
+            print(f"Error: Input directory does not exist: {input_dir}")
             sys.exit(1)
         if not input_dir.is_dir():
-            print(f"错误: 输入路径不是目录: {input_dir}")
+            print(f"Error: Input path is not a directory: {input_dir}")
             sys.exit(1)
 
-        # 创建输出目录
+        # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
-        print(f"输出目录: {output_dir}")
+        print(f"Output directory: {output_dir}")
 
-        # 查找配置文件
+        # Find config file
         if args.config is None:
-            print("未指定配置文件，正在自动查找...")
+            print("No config file specified, auto-searching...")
             config_file = find_config_file()
             if config_file is None:
-                print("错误: 未找到配置文件。请在以下位置之一创建 config.yaml 或 config.yml：")
-                print("  1. 当前工作目录")
-                print("  2. 用户家目录下的 .openlucky 目录 (例如 C:\\Users\\YourName\\.openlucky)")
+                print("Error: Configuration file not found. Please create config.yaml or config.yml in one of the following locations:")
+                print("  1. Current working directory")
+                print("  2. .openlucky directory in user home directory (e.g. C:\\Users\\YourName\\.openlucky)")
                 sys.exit(1)
-            print(f"找到配置文件: {config_file}")
+            print(f"Found config file: {config_file}")
         else:
             config_file = Path(args.config)
 
         if not config_file.exists():
-            print(f"错误: 配置文件不存在: {config_file}")
+            print(f"Error: Configuration file does not exist: {config_file}")
             sys.exit(1)
 
-        # 遍历输入目录查找图片
+        # Search for images in input directory
         image_files = []
         for ext in IMAGE_EXTENSIONS:
             image_files.extend(input_dir.glob(f'*{ext}'))
             image_files.extend(input_dir.glob(f'*{ext.upper()}'))
 
         if not image_files:
-            print(f"警告: 在 {input_dir} 中没有找到支持的图片文件")
-            print(f"支持的格式: {', '.join(IMAGE_EXTENSIONS)}")
+            print(f"Warning: No supported image files found in {input_dir}")
+            print(f"Supported formats: {', '.join(IMAGE_EXTENSIONS)}")
             sys.exit(0)
 
-        print(f"找到 {len(image_files)} 个图片文件")
+        print(f"Found {len(image_files)} image files")
 
-        # 批量处理
+        # Batch processing
         success_count = 0
         fail_count = 0
 
         for i, input_file in enumerate(image_files, 1):
-            print(f"[{i}/{len(image_files)}] dealing negative film: {input_file.name}")
+            print(f"[{i}/{len(image_files)}] Processing negative: {input_file.name}")
             try:
                 output_file = output_dir / input_file.name
                 process_film(input_file, output_file, config_file, args.preset)

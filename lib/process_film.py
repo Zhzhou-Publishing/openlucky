@@ -10,16 +10,16 @@ def process_film(input_path, output_path, config_path, preset_name="kodak_ultram
             config = yaml.safe_load(f)
         preset = config['presets'].get(preset_name)
         if not preset:
-            print(f"错误: 在配置文件中未找到预设 '{preset_name}'")
+            print(f"Error: Preset '{preset_name}' not found in config file")
             return
     except Exception as e:
-        print(f"无法读取配置文件: {e}")
+        print(f"Cannot read config file: {e}")
         return
 
-    # 2. 读取图片 (支持 TIFF, 允许读取 16bit)
+    # 2. Read image (supports TIFF, allows reading 16bit)
     img = cv2.imread(str(input_path), cv2.IMREAD_UNCHANGED)
     if img is None:
-        print(f"错误: 无法读取输入文件 '{input_path}'")
+        print(f"Error: Cannot read input file '{input_path}'")
         return
 
     # 转换为浮点数进行高精度计算
@@ -47,7 +47,7 @@ def process_film(input_path, output_path, config_path, preset_name="kodak_ultram
         high = np.percentile(img[:, :, i], 99.5)  # 忽略极小比例的白场噪点
         img[:, :, i] = np.clip((img[:, :, i] - low) * (255.0 / (high - low + 1e-5)) * contrast, 0, 255)
 
-    # 7. 保存结果
+    # 7. Save result
     img_final = img.astype(np.uint8)
     cv2.imwrite(str(output_path), img_final)
-    print(f"处理成功！结果已保存至: {output_path}")
+    print(f"Processing successful! Result saved to: {output_path}")
