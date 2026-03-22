@@ -395,7 +395,7 @@ onUnmounted(() => {
 
 .main-image {
   width: 100%;
-  max-height: calc(100vh - 240px);
+  max-height: 50vh;
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

@@ -13,15 +13,15 @@
         class="number-field"
       />
       <div class="buttons">
-        <button @click="increment(1)" class="up-btn" :disabled="inputValue >= max">▲</button>
-        <button @click="decrement(1)" class="down-btn" :disabled="inputValue <= min">▼</button>
+        <button @click="increment(1)" class="up-btn" :disabled="inputValue >= max" :title="upBtnTooltip">▲</button>
+        <button @click="decrement(1)" class="down-btn" :disabled="inputValue <= min" :title="downBtnTooltip">▼</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 
 const props = defineProps({
   label: {
@@ -66,6 +66,28 @@ const emit = defineEmits(['update:modelValue'])
 
 const inputRef = ref(null)
 const inputValue = ref(props.modelValue)
+
+const upBtnTooltip = computed(() => {
+  const tips = []
+  if (props.increaseKey) {
+    tips.push(`${props.increaseKey}`)
+  }
+  if (props.largeStepIncreaseKey) {
+    tips.push(`(+${props.largeStepValue}): ${props.largeStepIncreaseKey}`)
+  }
+  return tips.join('\n')
+})
+
+const downBtnTooltip = computed(() => {
+  const tips = []
+  if (props.decreaseKey) {
+    tips.push(`${props.decreaseKey}`)
+  }
+  if (props.largeStepDecreaseKey) {
+    tips.push(`(-${props.largeStepValue}): ${props.largeStepDecreaseKey}`)
+  }
+  return tips.join('\n')
+})
 
 watch(() => props.modelValue, (newValue) => {
   inputValue.value = newValue
