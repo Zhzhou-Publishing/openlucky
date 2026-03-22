@@ -51,3 +51,5 @@ def process_film(input_path, output_path, config_path, preset_name="kodak_ultram
     img_final = img.astype(np.uint8)
     cv2.imwrite(str(output_path), img_final)
     print(f"Processing successful! Result saved to: {output_path}")
+
+    return config

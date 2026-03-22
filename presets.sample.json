@@ -1,0 +1,12 @@
+{
+    "pic0001.tif": {
+        "preset": "kodak_gold_200",
+        "preset_label": "Kodak Gold 200 (Kodak Alaris 35mm)",
+        "output_dir": "./output/pic0001.tif",
+        "mask_r": 210,
+        "mask_g": 150,
+        "mask_b": 110,
+        "contrast": 1.1,
+        "gamma": 2.2
+    }
+}

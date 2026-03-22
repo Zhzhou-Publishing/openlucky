@@ -13,6 +13,45 @@ from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
 
 
+def save_preset_to_json(input_file, output_file, preset_config, preset_name):
+    """
+    Save preset configuration to .preset.json file in the same directory as input_file
+
+    Args:
+        input_file: Path to the input file
+        output_file: Path to the output file
+        preset_config: The preset configuration dict
+        preset_name: Name of the preset used
+    """
+    preset_file = input_file.parent / '.preset.json'
+
+    # Read existing preset file if it exists
+    if preset_file.exists():
+        with open(preset_file, 'r', encoding='utf-8') as f:
+            presets = json.load(f)
+    else:
+        presets = {}
+
+    # Create preset entry
+    preset_entry = {
+        'preset': preset_name,
+        'preset_label': preset_config.get('label', ''),
+        'output_dir': str(output_file).replace('\\', '/'),
+    }
+
+    # Add all other preset parameters (mask_r, mask_g, mask_b, contrast, gamma, saturation, etc.)
+    for key, value in preset_config.items():
+        if key != 'label':  # label already handled as preset_label
+            preset_entry[key] = value
+
+    # Update presets with new entry
+    presets[input_file.name] = preset_entry
+
+    # Write back to file
+    with open(preset_file, 'w', encoding='utf-8') as f:
+        json.dump(presets, f, indent=4, ensure_ascii=False)
+
+
 def find_config_file():
     """
     Search for configuration file, try in the following order:
@@ -106,7 +145,13 @@ def main():
             print(f"Error: Configuration file does not exist: {config_file}")
             sys.exit(1)
 
-        process_film(input_file, output_file, config_file, args.preset)
+        config = process_film(input_file, output_file, config_file, args.preset)
+        if config:
+            # Save preset to .preset.json
+            preset_config = config['presets'].get(args.preset)
+            if preset_config:
+                # Use forward slashes in path to avoid double backslashes in JSON
+                save_preset_to_json(input_file, output_file, preset_config, args.preset)
 
     elif args.command == 'filmbatch':
         input_dir = Path(args.input)
@@ -154,9 +199,18 @@ def main():
 
         print(f"Found {len(image_files)} image files")
 
-        # Batch processing
+        # Load preset config once for all files
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        preset_config = config['presets'].get(args.preset)
+        if not preset_config:
+            print(f"Error: Preset '{args.preset}' not found in config file")
+            sys.exit(1)
+
+        # Batch processing - collect presets first
         success_count = 0
         fail_count = 0
+        presets_by_dir = {}  # Group presets by input directory
 
         for i, input_file in enumerate(image_files, 1):
             print(f"[{i}/{len(image_files)}] Processing negative: {input_file.name}")
@@ -164,9 +218,41 @@ def main():
                 output_file = output_dir / input_file.name
                 process_film(input_file, output_file, config_file, args.preset)
                 success_count += 1
+
+                # Collect preset info for later batch write
+                dir_key = str(input_file.parent)
+                if dir_key not in presets_by_dir:
+                    presets_by_dir[dir_key] = {}
+                presets_by_dir[dir_key][input_file.name] = {
+                    'preset': args.preset,
+                    'preset_label': preset_config.get('label', ''),
+                    'output_dir': str(output_file).replace('\\', '/'),
+                }
+                # Add all other preset parameters
+                for key, value in preset_config.items():
+                    if key != 'label':
+                        presets_by_dir[dir_key][input_file.name][key] = value
             except Exception as e:
                 print(e)
                 fail_count += 1
+
+        # Batch write all presets to .preset.json files
+        for dir_path, presets in presets_by_dir.items():
+            preset_file = Path(dir_path) / '.preset.json'
+
+            # Read existing preset file if it exists
+            existing_presets = {}
+            if preset_file.exists():
+                with open(preset_file, 'r', encoding='utf-8') as f:
+                    existing_presets = json.load(f)
+
+            # Merge with new presets
+            existing_presets.update(presets)
+
+            # Write back to file
+            with open(preset_file, 'w', encoding='utf-8') as f:
+                json.dump(existing_presets, f, indent=4, ensure_ascii=False)
+            print(f"Saved {len(presets)} preset(s) to {preset_file}")
 
     elif args.command == 'tiff2jpeg':
         convert_tiff_to_jpeg(args.input, args.output)
