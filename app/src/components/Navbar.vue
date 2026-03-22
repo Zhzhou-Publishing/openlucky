@@ -20,7 +20,7 @@
 
 <script setup>
 const routes = [
-  { path: '/', name: 'PhotoDirectory' },
+  { path: '/', name: 'Home' },
   { path: '/about', name: 'About' }
 ]
 </script>

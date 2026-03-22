@@ -7,7 +7,7 @@ const { spawn } = require('child_process')
 function createWindow() {
   // 创建浏览器窗口
   const win = new BrowserWindow({
-    width: 800,
+    width: 1200,
     height: 800,
     autoHideMenuBar: true,
     resizable: false,

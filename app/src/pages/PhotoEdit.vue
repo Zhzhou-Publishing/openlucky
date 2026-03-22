@@ -32,6 +32,8 @@
           :large-step-value="0.1" large-step-increase-key="R" large-step-decrease-key="F" />
         <NumberInput label="Contrast" v-model="input5" :max="2" :min="0.5" increase-key="t" decrease-key="g"
           :large-step-value="0.05" large-step-increase-key="T" large-step-decrease-key="G" />
+        <button @click="apply" class="apply-button" title="Enter">Apply</button>
+        <button @click="applyAll" class="apply-all-button" title="CTRL + Enter">Apply All</button>
       </div>
 
       <!-- Processing Overlay -->
@@ -579,10 +581,34 @@ onUnmounted(() => {
   display: flex;
   gap: 16px;
   justify-content: center;
+  align-items: flex-end;
   padding: 16px;
   background: white;
   border-top: 1px solid #e0e0e0;
   flex-shrink: 0;
+}
+
+.apply-button,
+.apply-all-button {
+  padding: 8px 20px;
+  background: #42b883;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.apply-button:hover,
+.apply-all-button:hover {
+  background: #35a372;
+}
+
+.apply-button:active,
+.apply-all-button:active {
+  transform: scale(0.98);
 }
 
 .thumbnails-container {
