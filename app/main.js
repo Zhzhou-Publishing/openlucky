@@ -25,6 +25,36 @@ function createWindow() {
     win.webContents.openDevTools()
   }
 
+  // Handle check-openlucky request
+  ipcMain.on('check-openlucky', async (event) => {
+    try {
+      // Spawn the process to check if openlucky --help works
+      const process = spawn('openlucky', ['--help'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+        detached: true
+      })
+
+      let errorOutput = ''
+
+      process.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      process.on('close', (code) => {
+        const success = code === 0
+        event.sender.send('openlucky-checked', { success, error: errorOutput })
+      })
+
+      process.on('error', (err) => {
+        event.sender.send('openlucky-checked', { success: false, error: err.message })
+      })
+    } catch (error) {
+      console.error('Error checking openlucky:', error)
+      event.sender.send('openlucky-checked', { success: false, error: error.message })
+    }
+  })
+
   // Handle directory selection request
   ipcMain.on('select-directory', async () => {
     try {

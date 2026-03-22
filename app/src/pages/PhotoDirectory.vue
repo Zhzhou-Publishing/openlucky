@@ -4,6 +4,11 @@
       <h1 class="page-title">Select Photo Directory</h1>
       <p class="page-description">Choose a local folder containing your photos</p>
 
+      <!-- OpenLucky installation error -->
+      <div v-if="!openluckyAvailable" class="installation-error">
+        ❌ The software installation is incomplete. This may be due to your antivirus software damaging the software. Please reinstall.
+      </div>
+
       <!-- Electron environment indicator -->
       <div v-if="!isElectron" class="warning-box">
         ⚠️ Not running in Electron environment
@@ -12,7 +17,7 @@
       <button
         @click="selectDirectory"
         class="select-button"
-        :disabled="isLoading || !isElectron"
+        :disabled="isLoading || !isElectron || !openluckyAvailable"
       >
         <span v-if="!isLoading">📁 Select Directory</span>
         <span v-else>Loading...</span>
@@ -47,6 +52,8 @@ const router = useRouter()
 // Check if running in Electron environment
 let ipcRenderer = null
 const isElectron = ref(false)
+const openluckyAvailable = ref(true)
+const isCheckingOpenLucky = ref(true)
 
 onMounted(() => {
   // Multiple checks to detect Electron environment
@@ -60,6 +67,9 @@ onMounted(() => {
     try {
       ipcRenderer = window.require('electron').ipcRenderer
       console.log('Electron environment detected, ipcRenderer loaded')
+
+      // Check if openlucky is available
+      checkOpenLucky()
     } catch (error) {
       console.error('Failed to load electron APIs:', error)
       isElectron.value = false
@@ -69,6 +79,19 @@ onMounted(() => {
     console.warn('Please run: npm run dev (in terminal 1) && npm run electron (in terminal 2)')
   }
 })
+
+const checkOpenLucky = () => {
+  ipcRenderer.send('check-openlucky')
+
+  ipcRenderer.once('openlucky-checked', (_, result) => {
+    openluckyAvailable.value = result.success
+    isCheckingOpenLucky.value = false
+
+    if (!result.success) {
+      console.error('openlucky check failed:', result.error)
+    }
+  })
+}
 
 const selectedPath = ref('')
 const files = ref([])
@@ -151,6 +174,17 @@ const selectDirectory = async () => {
   font-size: 16px;
   color: #666;
   margin-bottom: 40px;
+}
+
+.installation-error {
+  background: #f8d7da;
+  border: 1px solid #dc3545;
+  color: #721c24;
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  font-size: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .select-button {

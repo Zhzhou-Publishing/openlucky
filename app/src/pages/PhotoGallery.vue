@@ -525,7 +525,7 @@ onUnmounted(() => {
   background: white;
   cursor: pointer;
   transition: border-color 0.2s ease;
-  min-width: 180px;
+  min-width: 400px;
 }
 
 .preset-select:hover {
