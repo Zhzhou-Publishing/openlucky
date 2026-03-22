@@ -12,3 +12,7 @@ Resolution:
 $env:PYTHONPATH = $PWD
 python .\cmd\openlucky.py help
 ```
+
+## Electron Build Symbol Link Problem
+
+Windows Setting >> Security >> Developer Mode
