@@ -80,10 +80,10 @@ const inputValue = ref(props.modelValue)
 const upBtnTooltip = computed(() => {
   const tips = []
   if (props.increaseKey) {
-    tips.push(`${props.increaseKey}`)
+    tips.push(`Shortcut Key: ${props.increaseKey}`)
   }
   if (props.largeStepIncreaseKey) {
-    tips.push(`(+${props.largeStepValue}): ${props.largeStepIncreaseKey}`)
+    tips.push(`Shortcut Key of A Large Step(+${props.largeStepValue}): ${props.largeStepIncreaseKey}`)
   }
   return tips.join('\n')
 })

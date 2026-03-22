@@ -25,18 +25,18 @@
 
       <!-- Operation Area -->
       <div class="operation-area">
-        <NumberInput label="Mask-R" v-model="input1" :max="255" :min="0" increase-key="q" decrease-key="a"
+        <NumberInput label="Mask-R" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
           :disabled="isApplying" />
-        <NumberInput label="Mask-G" v-model="input2" :max="255" :min="0" increase-key="w" decrease-key="s"
+        <NumberInput label="Mask-G" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
           :disabled="isApplying" />
-        <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="e" decrease-key="d"
+        <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
           :disabled="isApplying" />
-        <NumberInput label="Gamma" v-model="input4" :max="5" :min="0.01" increase-key="r" decrease-key="f"
-          :step-value="0.01" :large-step-value="0.1" large-step-increase-key="R" large-step-decrease-key="F"
-          :disabled="isApplying" />
-        <NumberInput label="Contrast" v-model="input5" :max="2" :min="0.5" increase-key="t" decrease-key="g"
-          :step-value="0.01" :large-step-value="0.05" large-step-increase-key="T" large-step-decrease-key="G"
-          :disabled="isApplying" />
+        <NumberInput label="Gamma" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
+          :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Shift + R"
+          large-step-decrease-key="Shift + F" :disabled="isApplying" />
+        <NumberInput label="Contrast" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
+          :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Shift + T"
+          large-step-decrease-key="Shift + G" :disabled="isApplying" />
         <button @click="apply" class="apply-button" title="Enter" :disabled="isApplying">Apply</button>
         <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isApplying">Apply
           All</button>
