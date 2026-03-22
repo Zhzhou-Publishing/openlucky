@@ -154,10 +154,13 @@ function handleKeydown(event) {
   modifiers.push(key)
   const shortcut = modifiers.join('+')
 
-  const increaseKey = props.increaseKey.toLowerCase()
-  const decreaseKey = props.decreaseKey.toLowerCase()
-  const largeStepIncreaseKey = props.largeStepIncreaseKey.toLowerCase()
-  const largeStepDecreaseKey = props.largeStepDecreaseKey.toLowerCase()
+  // Normalize shortcut keys by removing spaces and converting to lowercase
+  const normalizeShortcut = (key) => key.toLowerCase().replace(/\s+/g, '')
+
+  const increaseKey = normalizeShortcut(props.increaseKey)
+  const decreaseKey = normalizeShortcut(props.decreaseKey)
+  const largeStepIncreaseKey = normalizeShortcut(props.largeStepIncreaseKey)
+  const largeStepDecreaseKey = normalizeShortcut(props.largeStepDecreaseKey)
 
   // Check if this is one of our configured shortcuts
   const isOurShortcut = shortcut === increaseKey ||
