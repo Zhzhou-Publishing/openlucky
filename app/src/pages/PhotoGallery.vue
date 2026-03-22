@@ -33,14 +33,14 @@
     <div v-if="!isLoading && images.length > 0" class="bottom-menu">
       <div class="menu-item">
         <label class="menu-label">Preset:</label>
-        <select v-model="selectedPreset" class="preset-select" :disabled="isLoading || isApplyingPreset">
+        <select v-model="selectedPreset" class="preset-select" :disabled="isLoading || isApplyingPreset || isLoadingPresets">
           <option v-for="preset in presets" :key="preset.value" :value="preset.value">
             {{ preset.label }}
           </option>
         </select>
-        <button @click="applyPreset" class="apply-button" :disabled="isLoading || isApplyingPreset">
+        <button @click="applyPreset" class="apply-button" :disabled="isLoading || isApplyingPreset || isLoadingPresets">
           {{ applyButtonText }}
-          <span v-if="hasUnappliedChanges" class="red-dot"></span>
+          <span v-if="hasUnappliedChanges && !isLoadingPresets" class="red-dot"></span>
         </button>
       </div>
     </div>
@@ -69,6 +69,7 @@ const selectedImage = ref(null)
 const selectedPreset = ref('lucky_c200_2025')
 const hasUnappliedChanges = ref(true)
 const isApplyingPreset = ref(false)
+const isLoadingPresets = ref(true)
 const previewingDirectory = ref('')
 const workingDirectory = ref('')
 
@@ -213,6 +214,7 @@ const loadPresets = async () => {
 
       ipcRenderer.once('presets-loaded', (_, result) => {
         presets.value = result.presets
+        isLoadingPresets.value = false
         // Select first preset by default if available
         if (presets.value.length > 0 && !presets.value.find(p => p.value === selectedPreset.value)) {
           selectedPreset.value = presets.value[0].value
@@ -221,18 +223,20 @@ const loadPresets = async () => {
 
       ipcRenderer.once('presets-error', (_, error) => {
         console.error('Error loading presets:', error)
+        isLoadingPresets.value = false
       })
     }
   } catch (error) {
     console.error('Error loading presets:', error)
+    isLoadingPresets.value = false
   }
 }
 
 onMounted(() => {
   previewingDirectory.value = directoryPath.value
   workingDirectory.value = directoryPath.value
-  loadImages()
-  loadPresets()
+  // Run loadImages and loadPresets in parallel
+  Promise.all([loadPresets(), loadImages()])
   // Make window resizable when entering photo gallery
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
