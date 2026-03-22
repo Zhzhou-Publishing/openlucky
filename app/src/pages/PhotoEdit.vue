@@ -25,21 +25,21 @@
 
       <!-- Operation Area -->
       <div class="operation-area">
-        <NumberInput label="Mask-R" v-model="input1" :max="255" :min="0" increase-key="q" decrease-key="a" />
-        <NumberInput label="Mask-G" v-model="input2" :max="255" :min="0" increase-key="w" decrease-key="s" />
-        <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="e" decrease-key="d" />
-        <NumberInput label="Gamma" v-model="input4" :max="3" :min="0.1" increase-key="r" decrease-key="f"
-          :large-step-value="0.1" large-step-increase-key="R" large-step-decrease-key="F" />
+        <NumberInput label="Mask-R" v-model="input1" :max="255" :min="0" increase-key="q" decrease-key="a"
+          :disabled="isApplying" />
+        <NumberInput label="Mask-G" v-model="input2" :max="255" :min="0" increase-key="w" decrease-key="s"
+          :disabled="isApplying" />
+        <NumberInput label="Mask-B" v-model="input3" :max="255" :min="0" increase-key="e" decrease-key="d"
+          :disabled="isApplying" />
+        <NumberInput label="Gamma" v-model="input4" :max="5" :min="0.01" increase-key="r" decrease-key="f"
+          :step-value="0.01" :large-step-value="0.1" large-step-increase-key="R" large-step-decrease-key="F"
+          :disabled="isApplying" />
         <NumberInput label="Contrast" v-model="input5" :max="2" :min="0.5" increase-key="t" decrease-key="g"
-          :large-step-value="0.05" large-step-increase-key="T" large-step-decrease-key="G" />
-        <button @click="apply" class="apply-button" title="Enter">Apply</button>
-        <button @click="applyAll" class="apply-all-button" title="CTRL + Enter">Apply All</button>
-      </div>
-
-      <!-- Processing Overlay -->
-      <div v-if="isProcessing" class="processing-overlay">
-        <div class="spinner"></div>
-        <p>Processing...</p>
+          :step-value="0.01" :large-step-value="0.05" large-step-increase-key="T" large-step-decrease-key="G"
+          :disabled="isApplying" />
+        <button @click="apply" class="apply-button" title="Enter" :disabled="isApplying">Apply</button>
+        <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isApplying">Apply
+          All</button>
       </div>
 
       <!-- Thumbnail Navigation -->
@@ -68,7 +68,7 @@ const route = useRoute()
 
 const images = ref([])
 const isLoading = ref(true)
-const isProcessing = ref(false)
+const isApplying = ref(false)
 const currentIndex = ref(0)
 const fullResImageUrl = ref('')
 const input1 = ref(0)
@@ -136,8 +136,8 @@ const apply = () => {
     // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
     const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
 
-    // Set processing state
-    isProcessing.value = true
+    // Set applying state to disable controls
+    isApplying.value = true
 
     // Remove existing listeners to avoid duplicates
     ipcRenderer.removeAllListeners('filmparam-apply-started')
@@ -163,21 +163,22 @@ const apply = () => {
 
     ipcRenderer.once('filmparam-apply-success', (_, result) => {
       console.log(result.message, result.outputPath)
-      // Reset processing state
-      isProcessing.value = false
-      // Reload images to show updated output
-      loadImages()
+      // Update image timestamps to refresh display without reloading page
+      imageTimestamp.value = Date.now()
+      loadFullResImage()
+      // Reload presets and then enable controls
+      loadPresets(true)
     })
 
     ipcRenderer.once('filmparam-apply-error', (_, error) => {
       console.error('Error applying film parameters:', error)
-      // Reset processing state
-      isProcessing.value = false
+      // Reset applying state to re-enable controls immediately on error
+      isApplying.value = false
     })
   } catch (error) {
     console.error('Error applying film parameters:', error)
-    // Reset processing state
-    isProcessing.value = false
+    // Reset applying state to re-enable controls immediately on error
+    isApplying.value = false
   }
 }
 
@@ -198,8 +199,8 @@ const applyAll = () => {
     // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
     const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
 
-    // Set processing state
-    isProcessing.value = true
+    // Set applying state to disable controls
+    isApplying.value = true
 
     // Remove existing listeners to avoid duplicates
     ipcRenderer.removeAllListeners('filmparambatch-apply-started')
@@ -224,21 +225,22 @@ const applyAll = () => {
 
     ipcRenderer.once('filmparambatch-apply-success', (_, result) => {
       console.log(result.message)
-      // Reset processing state
-      isProcessing.value = false
-      // Reload images to show updated output
-      loadImages()
+      // Update image timestamps to refresh display without reloading page
+      imageTimestamp.value = Date.now()
+      loadFullResImage()
+      // Reload presets and then enable controls
+      loadPresets(true)
     })
 
     ipcRenderer.once('filmparambatch-apply-error', (_, error) => {
       console.error('Error applying film parameters to all images:', error)
-      // Reset processing state
-      isProcessing.value = false
+      // Reset applying state to re-enable controls immediately on error
+      isApplying.value = false
     })
   } catch (error) {
     console.error('Error applying film parameters to all images:', error)
-    // Reset processing state
-    isProcessing.value = false
+    // Reset applying state to re-enable controls immediately on error
+    isApplying.value = false
   }
 }
 
@@ -369,7 +371,7 @@ const loadImages = async () => {
   }
 }
 
-const loadPresets = async () => {
+const loadPresets = async (enableAfterLoad = false) => {
   try {
     if (!workingDirectory.value || !window.require) {
       return
@@ -382,13 +384,25 @@ const loadPresets = async () => {
     ipcRenderer.once('preset-json-loaded', (_, result) => {
       presetsData.value = result.presets
       loadPresetForCurrentImage()
+      // Enable controls if this was called after apply/applyAll
+      if (enableAfterLoad) {
+        isApplying.value = false
+      }
     })
 
     ipcRenderer.once('preset-json-error', (_, error) => {
       console.error('Error loading preset json:', error)
+      // Enable controls even if loading failed
+      if (enableAfterLoad) {
+        isApplying.value = false
+      }
     })
   } catch (error) {
     console.error('Error loading preset json:', error)
+    // Enable controls even if there was an exception
+    if (enableAfterLoad) {
+      isApplying.value = false
+    }
   }
 }
 
@@ -601,14 +615,21 @@ onUnmounted(() => {
   transition: background 0.3s ease;
 }
 
-.apply-button:hover,
-.apply-all-button:hover {
+.apply-button:hover:not(:disabled),
+.apply-all-button:hover:not(:disabled) {
   background: #35a372;
 }
 
-.apply-button:active,
-.apply-all-button:active {
+.apply-button:active:not(:disabled),
+.apply-all-button:active:not(:disabled) {
   transform: scale(0.98);
+}
+
+.apply-button:disabled,
+.apply-all-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .thumbnails-container {
@@ -659,25 +680,5 @@ onUnmounted(() => {
   background: white;
   border-top: 1px solid #e0e0e0;
   flex-shrink: 0;
-}
-
-.processing-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  color: white;
-}
-
-.processing-overlay p {
-  margin-top: 20px;
-  font-size: 18px;
 }
 </style>

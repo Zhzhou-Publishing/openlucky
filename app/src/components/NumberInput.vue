@@ -8,13 +8,15 @@
         type="number"
         :min="min"
         :max="max"
+        :step="stepValue"
+        :disabled="disabled"
         @input="onInput"
         @blur="onBlur"
         class="number-field"
       />
       <div class="buttons">
-        <button @click="increment(1)" class="up-btn" :disabled="inputValue >= max" :title="upBtnTooltip">▲</button>
-        <button @click="decrement(1)" class="down-btn" :disabled="inputValue <= min" :title="downBtnTooltip">▼</button>
+        <button @click="increment(1)" class="up-btn" :disabled="disabled || inputValue >= max" :title="upBtnTooltip">▲</button>
+        <button @click="decrement(1)" class="down-btn" :disabled="disabled || inputValue <= min" :title="downBtnTooltip">▼</button>
       </div>
     </div>
   </div>
@@ -48,6 +50,10 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  stepValue: {
+    type: Number,
+    default: 1
+  },
   largeStepIncreaseKey: {
     type: String,
     default: ''
@@ -59,6 +65,10 @@ const props = defineProps({
   largeStepValue: {
     type: Number,
     default: 1
+  },
+  disabled: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -163,9 +173,9 @@ function handleKeydown(event) {
   if (isOurShortcut) {
     event.preventDefault()
     if (shortcut === increaseKey) {
-      increment(1)
+      increment(props.stepValue)
     } else if (shortcut === decreaseKey) {
-      decrement(1)
+      decrement(props.stepValue)
     } else if (shortcut === largeStepIncreaseKey) {
       increment(props.largeStepValue)
     } else if (shortcut === largeStepDecreaseKey) {
