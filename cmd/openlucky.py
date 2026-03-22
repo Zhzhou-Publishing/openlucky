@@ -1,6 +1,9 @@
 import argparse
+import json
 import sys
 from pathlib import Path
+
+import yaml
 
 from lib.process_film import process_film
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
@@ -66,6 +69,15 @@ def main():
     tiff_parser = subparsers.add_parser('tiff2jpeg', help='TIFF to JPEG format conversion')
     tiff_parser.add_argument('--input', '-i', required=True, help='Input TIFF file path')
     tiff_parser.add_argument('--output', '-o', required=True, help='Output JPEG file path')
+
+    # config subcommand
+    config_parser = subparsers.add_parser('config', help='Configuration management')
+    config_subparsers = config_parser.add_subparsers(dest='config_command', help='Available config subcommands')
+
+    # config read subcommand
+    config_read_parser = config_subparsers.add_parser('read', help='Read configuration file')
+    config_read_parser.add_argument('--config', '-c', required=False, help='Configuration file (yaml) path (auto-search if empty)')
+    config_read_parser.add_argument('--format', '-f', default='yaml', choices=['json', 'yaml'], help='Output format (default: yaml)')
 
     args = parser.parse_args()
 
@@ -158,7 +170,46 @@ def main():
 
     elif args.command == 'tiff2jpeg':
         convert_tiff_to_jpeg(args.input, args.output)
-    
+
+    elif args.command == 'config':
+        if args.config_command == 'read':
+            # Find config file
+            if args.config is None:
+                config_file = find_config_file()
+                if config_file is None:
+                    print("Error: Configuration file not found. Please create config.yaml or config.yml in one of the following locations:")
+                    print("  1. Current working directory")
+                    print("  2. .openlucky directory in user home directory (e.g. C:\\Users\\YourName\\.openlucky)")
+                    sys.exit(1)
+            else:
+                config_file = Path(args.config)
+
+            if not config_file.exists():
+                print(f"Error: Configuration file does not exist: {config_file}")
+                sys.exit(1)
+
+            # Read YAML file
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config_content = f.read()
+            except Exception as e:
+                print(f"Error: Failed to read config file: {e}")
+                sys.exit(1)
+
+            # Output in specified format
+            if args.format == 'json':
+                try:
+                    parsed_config = yaml.safe_load(config_content)
+                    print(json.dumps(parsed_config, indent=2, ensure_ascii=False))
+                except Exception as e:
+                    print(f"Error: Failed to parse config as JSON: {e}")
+                    sys.exit(1)
+            else:  # yaml - output original draft directly
+                print(config_content)
+        else:
+            config_parser.print_help()
+            sys.exit(1)
+
     else:
         parser.print_help()
         sys.exit(1)
