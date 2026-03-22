@@ -1,0 +1,212 @@
+<template>
+  <div class="number-input">
+    <input
+      ref="inputRef"
+      v-model="inputValue"
+      type="number"
+      :min="min"
+      :max="max"
+      @input="onInput"
+      @blur="onBlur"
+      class="number-field"
+    />
+    <div class="buttons">
+      <button @click="increment(1)" class="up-btn" :disabled="inputValue >= max">▲</button>
+      <button @click="decrement(1)" class="down-btn" :disabled="inputValue <= min">▼</button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+
+const props = defineProps({
+  modelValue: {
+    type: Number,
+    default: 0
+  },
+  max: {
+    type: Number,
+    default: 255
+  },
+  min: {
+    type: Number,
+    default: 0
+  },
+  increaseKey: {
+    type: String,
+    default: ''
+  },
+  decreaseKey: {
+    type: String,
+    default: ''
+  },
+  largeStepIncreaseKey: {
+    type: String,
+    default: ''
+  },
+  largeStepDecreaseKey: {
+    type: String,
+    default: ''
+  },
+  largeStepValue: {
+    type: Number,
+    default: 1
+  }
+})
+
+const emit = defineEmits(['update:modelValue'])
+
+const inputRef = ref(null)
+const inputValue = ref(props.modelValue)
+
+watch(() => props.modelValue, (newValue) => {
+  inputValue.value = newValue
+})
+
+watch(inputValue, (newValue) => {
+  if (newValue !== '' && newValue !== null && newValue !== undefined) {
+    emit('update:modelValue', newValue)
+  }
+})
+
+function onInput(event) {
+  let value = event.target.value
+  if (value !== '' && value !== null && value !== undefined) {
+    value = Math.max(props.min, Math.min(props.max, parseInt(value)))
+    inputValue.value = value
+  }
+}
+
+function onBlur() {
+  if (inputValue.value === '' || inputValue.value === null || inputValue.value === undefined) {
+    inputValue.value = props.min
+  } else {
+    inputValue.value = Math.max(props.min, Math.min(props.max, parseInt(inputValue.value)))
+  }
+}
+
+function increment(step) {
+  const newValue = Math.min(props.max, inputValue.value + step)
+  inputValue.value = newValue
+  inputRef.value?.focus()
+}
+
+function decrement(step) {
+  const newValue = Math.max(props.min, inputValue.value - step)
+  inputValue.value = newValue
+  inputRef.value?.focus()
+}
+
+function handleKeydown(event) {
+  const key = event.key.toLowerCase()
+  const modifiers = []
+
+  if (event.shiftKey) modifiers.push('shift')
+  if (event.ctrlKey) modifiers.push('ctrl')
+  if (event.altKey) modifiers.push('alt')
+  if (event.metaKey) modifiers.push('meta')
+
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+    return
+  }
+
+  modifiers.push(key)
+  const shortcut = modifiers.join('+')
+
+  const increaseKey = props.increaseKey.toLowerCase()
+  const decreaseKey = props.decreaseKey.toLowerCase()
+  const largeStepIncreaseKey = props.largeStepIncreaseKey.toLowerCase()
+  const largeStepDecreaseKey = props.largeStepDecreaseKey.toLowerCase()
+
+  if (shortcut === increaseKey) {
+    event.preventDefault()
+    increment(1)
+  } else if (shortcut === decreaseKey) {
+    event.preventDefault()
+    decrement(1)
+  } else if (shortcut === largeStepIncreaseKey) {
+    event.preventDefault()
+    increment(props.largeStepValue)
+  } else if (shortcut === largeStepDecreaseKey) {
+    event.preventDefault()
+    decrement(props.largeStepValue)
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+</script>
+
+<style scoped>
+.number-input {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.number-field {
+  width: 80px;
+  padding: 8px 12px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.number-field::-webkit-outer-spin-button,
+.number-field::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #ddd;
+}
+
+.up-btn,
+.down-btn {
+  width: 32px;
+  height: 20px;
+  border: none;
+  background: #f5f5f5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #666;
+  transition: background 0.2s;
+  padding: 0;
+}
+
+.up-btn:hover:not(:disabled),
+.down-btn:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.up-btn:disabled,
+.down-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.up-btn {
+  border-bottom: 1px solid #ddd;
+}
+
+.down-btn {
+  border-top: none;
+}
+</style>

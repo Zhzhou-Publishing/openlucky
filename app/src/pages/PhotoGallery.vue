@@ -21,7 +21,7 @@
     </div>
 
     <div v-else class="gallery-grid">
-      <div v-for="(image, index) in images" :key="index" class="image-item" @contextmenu.prevent="openImage(image)">
+      <div v-for="(image, index) in images" :key="index" class="image-item" @click="openPhotoEdit(image)" @contextmenu.prevent="openImage(image)">
         <img :src="image.url" :alt="image.name" class="thumbnail" loading="lazy" />
         <div class="image-info">
           <p class="image-name">{{ image.name }}</p>
@@ -95,6 +95,18 @@ const goBack = () => {
 
 const openImage = (image) => {
   selectedImage.value = image
+}
+
+const openPhotoEdit = (image) => {
+  router.push({
+    path: '/photo-edit',
+    query: {
+      previewingDirectory: previewingDirectory.value,
+      workingDirectory: workingDirectory.value,
+      filename: image.name,
+      appliedPresetKey: selectedPreset.value
+    }
+  })
 }
 
 const closeModal = () => {

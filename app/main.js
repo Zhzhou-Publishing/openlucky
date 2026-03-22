@@ -204,6 +204,39 @@ function createWindow() {
     }
   })
 
+  // Handle get-full-res-image request
+  ipcMain.on('get-full-res-image', async (event, { directoryPath, filename }) => {
+    try {
+      const fullPath = path.join(directoryPath, filename)
+      const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
+      const tiffFormats = ['.tif', '.tiff']
+
+      let imageUrl = `file://${fullPath}`
+
+      // Convert tif/tiff files to jpg for browser compatibility
+      if (tiffFormats.includes(ext)) {
+        try {
+          const tempDir = path.join(app.getPath('temp'), 'photo-gallery-full-res')
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true })
+          }
+
+          const convertedPath = path.join(tempDir, `${path.basename(filename, ext)}.jpg`)
+          const buffer = await sharp(fullPath).jpeg({ quality: 95 }).toBuffer()
+          fs.writeFileSync(convertedPath, buffer)
+          imageUrl = `file://${convertedPath}`
+        } catch (err) {
+          console.error('Error converting image for', filename, err)
+        }
+      }
+
+      event.sender.send('full-res-image-loaded', { url: imageUrl })
+    } catch (error) {
+      console.error('Error getting full resolution image:', error)
+      event.sender.send('full-res-image-error', { error: error.message })
+    }
+  })
+
   // Handle apply-preset request
   ipcMain.on('apply-preset', async (event, { directoryPath, preset }) => {
     try {

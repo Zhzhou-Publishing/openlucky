@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import About from '../pages/About.vue'
 import PhotoDirectory from '../pages/PhotoDirectory.vue'
 import PhotoGallery from '../pages/PhotoGallery.vue'
+import PhotoEdit from '../pages/PhotoEdit.vue'
 
 const routes = [
   {
@@ -18,6 +19,11 @@ const routes = [
     path: '/photo-gallery',
     name: 'PhotoGallery',
     component: PhotoGallery
+  },
+  {
+    path: '/photo-edit',
+    name: 'PhotoEdit',
+    component: PhotoEdit
   },
   {
     path: '/about',
