@@ -122,6 +122,58 @@ function createWindow() {
     }
   })
 
+  // Handle get-presets request
+  ipcMain.on('get-presets', async (event) => {
+    try {
+      // Construct the command
+      const command = 'openlucky'
+      const args = ['config', 'read', '-f', 'json']
+
+      // Spawn the process
+      const process = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: true,
+        windowsHide: true
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      process.stdout.on('data', (data) => {
+        output += data.toString()
+      })
+
+      process.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      process.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const config = JSON.parse(output)
+            // Convert preset keys to array format for frontend
+            const presets = config.presets ? Object.keys(config.presets).map(key => ({
+              value: key,
+              label: config.presets[key].label || key
+            })) : []
+            event.sender.send('presets-loaded', { presets })
+          } catch (parseError) {
+            event.sender.send('presets-error', { message: 'Failed to parse config', error: parseError.message })
+          }
+        } else {
+          event.sender.send('presets-error', { message: `Process exited with code ${code}`, error: errorOutput })
+        }
+      })
+
+      process.on('error', (err) => {
+        event.sender.send('presets-error', { message: 'Failed to start process', error: err.message })
+      })
+    } catch (error) {
+      console.error('Error getting presets:', error)
+      event.sender.send('presets-error', { message: 'Error getting presets', error: error.message })
+    }
+  })
+
   // Handle apply-preset request
   ipcMain.on('apply-preset', async (event, { directoryPath, preset }) => {
     try {

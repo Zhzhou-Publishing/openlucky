@@ -76,14 +76,7 @@ const applyButtonText = computed(() => {
   return isApplyingPreset.value ? 'Applying...' : 'Apply'
 })
 
-const presets = [
-  { value: 'lucky_c200_2025', label: 'Lucky C200 (2025)' },
-  { value: 'fujifilm_c200', label: 'Fujifilm C200' },
-  { value: 'fujifilm_c400', label: 'Fujifilm C400' },
-  { value: 'kodak_colorplus_200', label: 'Kodak ColorPlus 200 (Kodak Alaris)' },
-  { value: 'kodak_gold_200', label: 'Kodak Gold 200 (Kodak Alaris)' },
-  { value: 'kodak_ultramax_400', label: 'Kodak Ultramax 400 (Kodak Alaris)' }
-]
+const presets = ref([])
 
 const directoryPath = computed(() => route.query.path || '')
 
@@ -211,10 +204,35 @@ const loadImages = async () => {
   }
 }
 
+const loadPresets = async () => {
+  try {
+    if (window.require) {
+      const ipcRenderer = window.require('electron').ipcRenderer
+
+      ipcRenderer.send('get-presets')
+
+      ipcRenderer.once('presets-loaded', (_, result) => {
+        presets.value = result.presets
+        // Select first preset by default if available
+        if (presets.value.length > 0 && !presets.value.find(p => p.value === selectedPreset.value)) {
+          selectedPreset.value = presets.value[0].value
+        }
+      })
+
+      ipcRenderer.once('presets-error', (_, error) => {
+        console.error('Error loading presets:', error)
+      })
+    }
+  } catch (error) {
+    console.error('Error loading presets:', error)
+  }
+}
+
 onMounted(() => {
   previewingDirectory.value = directoryPath.value
   workingDirectory.value = directoryPath.value
   loadImages()
+  loadPresets()
   // Make window resizable when entering photo gallery
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
