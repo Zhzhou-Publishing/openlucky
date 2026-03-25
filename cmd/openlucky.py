@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from lib.process_film import process_film, process_film_with_params
+from lib.process_film import process_film_with_params, process_film_bytestream_with_params
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 
 
@@ -54,6 +54,19 @@ def save_preset_to_json(input_file, output_file, preset_config, preset_name, pre
         json.dump(presets, f, indent=4, ensure_ascii=False)
 
 
+def get_preset_config(config_path, preset_name="kodak_ultramax_400"):
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        preset = config['presets'].get(preset_name)
+        if not preset:
+            print(f"Error: Preset '{preset_name}' not found in config file")
+            return
+    except Exception as e:
+        print(f"Cannot read config file: {e}")
+        return
+
+
 def find_config_file():
     """
     Search for configuration file, try in the following order:
@@ -92,8 +105,8 @@ def main():
 
     # film subcommand
     film_parser = subparsers.add_parser('film', help='Film negative to positive conversion (Kodak UltraMax 400 optimization)')
-    film_parser.add_argument('--input', '-i', required=True, help='Input negative film file path (supports .tif, .tiff, .jpg)')
-    film_parser.add_argument('--output', '-o', required=True, help='Output file save path')
+    film_parser.add_argument('--input', '-i', required=False, help='Input negative film file path (supports .tif, .tiff, .jpg). Leave empty to read from stdin.')
+    film_parser.add_argument('--output', '-o', required=False, help='Output file save path. Leave empty to write to stdout.')
     film_parser.add_argument('--config', '-c', required=False, help='Preset configuration file (yaml) path (auto-search if empty)')
     film_parser.add_argument('--preset', '-p', default='kodak_ultramax_400',
                              help='Preset name to use (default: kodak_ultramax_400)')
@@ -108,9 +121,9 @@ def main():
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
-    filmparam_parser.add_argument('--input', '-i', required=True, help='Input negative film file path (supports .tif, .tiff, .jpg)')
-    filmparam_parser.add_argument('--output', '-o', required=True, help='Output file save path')
-    filmparam_parser.add_argument('--param', '-r', required=True,
+    filmparam_parser.add_argument('--input', '-i', required=False, help='Input negative film file path (supports .tif, .tiff, .jpg). Leave empty to read from stdin.')
+    filmparam_parser.add_argument('--output', '-o', required=False, help='Output file save path. Leave empty to write to stdout.')
+    filmparam_parser.add_argument('--param', '-r', required=False,
                                    help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
 
     # filmparambatch subcommand
@@ -137,8 +150,25 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'film':
-        input_file = Path(args.input)
-        output_file = Path(args.output)
+        # Read input from file or stdin
+        if args.input is not None:
+            input_file = Path(args.input)
+            if not input_file.exists():
+                print(f"Error: Input file does not exist: {input_file}")
+                sys.exit(1)
+
+            try:
+                with open(input_file, 'rb') as f:
+                    input_bytes = f.read()
+            except Exception as e:
+                print(f"Error: Cannot read input file '{input_file}': {e}")
+                sys.exit(1)
+        else:
+            try:
+                input_bytes = sys.stdin.buffer.read()
+            except Exception as e:
+                print(f"Error: Failed to read from stdin: {e}", file=sys.stderr)
+                sys.exit(1)
 
         # If no config file specified, auto-search
         if args.config is None:
@@ -153,21 +183,48 @@ def main():
         else:
             config_file = Path(args.config)
 
-        if not input_file.exists():
-            print(f"Error: Input file does not exist: {input_file}")
-            sys.exit(1)
-
         if not config_file.exists():
             print(f"Error: Configuration file does not exist: {config_file}")
             sys.exit(1)
 
-        config = process_film(input_file, output_file, config_file, args.preset)
+        # Process with byte stream function
+        preset = get_preset_config(config_file, args.preset)
+        output_bytes = process_film_bytestream_with_params(
+            input_bytes,
+            preset_mask_b=preset['mask_b'],
+            preset_mask_g=preset['mask_g'],
+            preset_mask_r=preset['mask_r'],
+            preset_gamma=preset.get('gamma', 1.0),
+            preset_contrast=preset.get('contrast', 1.0)
+        )
+
+        if output_bytes is None:
+            print("Error: Failed to process image", file=sys.stderr)
+            sys.exit(1)
+
+        # Write output to file or stdout
+        if args.output is not None:
+            output_file = Path(args.output)
+            try:
+                with open(output_file, 'wb') as f:
+                    f.write(output_bytes)
+                print(f"Successfully saved to: {output_file}")
+            except Exception as e:
+                print(f"Error: Cannot write output file '{output_file}': {e}")
+                sys.exit(1)
+        else:
+            sys.stdout.buffer.write(output_bytes)
+
         if config:
             # Save preset to .preset.json
             preset_config = config['presets'].get(args.preset)
             if preset_config:
                 # Use forward slashes in path to avoid double backslashes in JSON
-                save_preset_to_json(input_file, output_file, preset_config, args.preset, preset_config.get('label'))
+                if args.output is not None:
+                    output_path_for_preset = Path(args.output)
+                else:
+                    output_path_for_preset = None
+                save_preset_to_json(Path(args.input) if args.input else None, output_path_for_preset, preset_config, args.preset, preset_config.get('label'))
 
     elif args.command == 'filmbatch':
         input_dir = Path(args.input)
@@ -232,8 +289,20 @@ def main():
             print(f"[{i}/{len(image_files)}] Processing negative: {input_file.name}")
             try:
                 output_file = output_dir / input_file.name
-                process_film(input_file, output_file, config_file, args.preset)
                 success_count += 1
+                
+                preset = get_preset_config(config_file, args.preset)
+   
+                process_film_with_params(
+                    input_file,
+                    output_file,
+                    preset_mask_b=preset['mask_b'],
+                    preset_mask_g=preset['mask_g'],
+                    preset_mask_r=preset['mask_r'],
+                    preset_gamma=preset.get('gamma', 1.0),
+                    preset_contrast=preset.get('contrast', 1.0)
+                )
+
 
                 # Collect preset info for later batch write
                 dir_key = str(input_file.parent)
@@ -271,10 +340,11 @@ def main():
             print(f"Saved {len(presets)} preset(s) to {preset_file}")
 
     elif args.command == 'filmparam':
-        input_file = Path(args.input)
-        output_file = Path(args.output)
-
         # Parse parameters
+        if args.param is None:
+            print("Error: --param is required for filmparam command")
+            sys.exit(1)
+
         try:
             params = args.param.split(',')
             if len(params) != 5:
@@ -290,20 +360,52 @@ def main():
             print(f"Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
             sys.exit(1)
 
-        if not input_file.exists():
-            print(f"Error: Input file does not exist: {input_file}")
-            sys.exit(1)
+        # Read input from file or stdin
+        if args.input is not None:
+            input_file = Path(args.input)
+            if not input_file.exists():
+                print(f"Error: Input file does not exist: {input_file}")
+                sys.exit(1)
 
-        # Process single file with custom parameters
-        process_film_with_params(
-            input_file,
-            output_file,
+            try:
+                with open(input_file, 'rb') as f:
+                    input_bytes = f.read()
+            except Exception as e:
+                print(f"Error: Cannot read input file '{input_file}': {e}")
+                sys.exit(1)
+        else:
+            try:
+                input_bytes = sys.stdin.buffer.read()
+            except Exception as e:
+                print(f"Error: Failed to read from stdin: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        # Process with byte stream function
+        output_bytes = process_film_bytestream_with_params(
+            input_bytes,
             preset_mask_r=mask_r,
             preset_mask_g=mask_g,
             preset_mask_b=mask_b,
             preset_gamma=gamma,
             preset_contrast=contrast
         )
+
+        if output_bytes is None:
+            print("Error: Failed to process image", file=sys.stderr)
+            sys.exit(1)
+
+        # Write output to file or stdout
+        if args.output is not None:
+            output_file = Path(args.output)
+            try:
+                with open(output_file, 'wb') as f:
+                    f.write(output_bytes)
+                print(f"Successfully saved to: {output_file}")
+            except Exception as e:
+                print(f"Error: Cannot write output file '{output_file}': {e}")
+                sys.exit(1)
+        else:
+            sys.stdout.buffer.write(output_bytes)
 
         # Save preset to .preset.json
         preset_name = f"custom_preset_{int(time.time())}"
@@ -315,7 +417,66 @@ def main():
             'gamma': gamma,
             'contrast': contrast
         }
-        save_preset_to_json(input_file, output_file, preset_config, preset_name, preset_label)
+        input_path_for_preset = Path(args.input) if args.input else None
+        output_path_for_preset = Path(args.output) if args.output else None
+        save_preset_to_json(input_path_for_preset, output_path_for_preset, preset_config, preset_name, preset_label)
+
+        # Parse parameters (required)
+        if args.param is None:
+            print("Error: --param is required for filmbytes command")
+            sys.exit(1)
+
+        try:
+            params = args.param.split(',')
+            if len(params) != 5:
+                print(f"Error: Invalid parameter format. Expected 'mask_r,mask_g,mask_b,gamma,contrast', got: {args.param}")
+                sys.exit(1)
+            mask_r = float(params[0])
+            mask_g = float(params[1])
+            mask_b = float(params[2])
+            gamma = float(params[3])
+            contrast = float(params[4])
+        except ValueError as e:
+            print(f"Error: Failed to parse parameters: {e}")
+            print(f"Expected format: 'mask_r,mask_g,mask_b,gamma,contrast', e.g., '110,220,210,1.1,1.5'")
+            sys.exit(1)
+
+        # Read input from file or stdin
+        if args.input is not None:
+            input_file = Path(args.input)
+            if not input_file.exists():
+                print(f"Error: Input file does not exist: {input_file}")
+                sys.exit(1)
+
+            try:
+                with open(input_file, 'rb') as f:
+                    input_bytes = f.read()
+            except Exception as e:
+                print(f"Error: Cannot read input file '{input_file}': {e}")
+                sys.exit(1)
+        else:
+            try:
+                input_bytes = sys.stdin.buffer.read()
+            except Exception as e:
+                print(f"Error: Failed to read from stdin: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        # Process with byte stream function
+        output_bytes = process_film_bytestream_with_params(
+            input_bytes,
+            preset_mask_r=mask_r,
+            preset_mask_g=mask_g,
+            preset_mask_b=mask_b,
+            preset_gamma=gamma,
+            preset_contrast=contrast
+        )
+
+        # Write output to stdout (for piping)
+        if output_bytes is None:
+            print("Error: Failed to process image", file=sys.stderr)
+            sys.exit(1)
+
+        sys.stdout.buffer.write(output_bytes)
 
     elif args.command == 'filmparambatch':
         input_dir = Path(args.input)
