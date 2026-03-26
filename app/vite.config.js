@@ -5,6 +5,8 @@ export default defineConfig({
   base: './',
   plugins: [vue()],
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+    // 确保复制 build-resources 到 dist
+    copyPublicDir: true
   }
 })

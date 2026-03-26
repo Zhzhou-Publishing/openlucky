@@ -8,7 +8,47 @@
 </template>
 
 <script setup>
+import { onMounted, onUnmounted } from 'vue'
 import Navbar from './components/Navbar.vue'
+import twemoji from '@twemoji/api'
+
+let observer = null
+
+const twemojiConfig = {
+  base: './',
+  folder: './build-resources/emoji',
+  ext: '.svg',
+  className: 'twemoji'
+}
+
+const parseTwemoji = () => {
+  twemoji.parse(document.body, twemojiConfig)
+}
+
+onMounted(() => {
+  console.log('🎨 Emoji 资源来源: 本地 (dist/build-resources/emoji)')
+
+  // 初始化 Twemoji
+  parseTwemoji()
+
+  // 监听 DOM 变化以重新解析 emoji
+  observer = new MutationObserver(() => {
+    parseTwemoji()
+  })
+
+  // 观察整个 body 的变化
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  })
+})
+
+onUnmounted(() => {
+  // 清理观察者
+  if (observer) {
+    observer.disconnect()
+  }
+})
 </script>
 
 <style>
@@ -22,6 +62,15 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #f5f5f5;
   overflow: hidden;
+}
+
+/* Twemoji styles */
+.twemoji {
+  display: inline-block;
+  vertical-align: middle;
+  width: 1em;
+  height: 1em;
+  margin: 0 0.05em;
 }
 
 #app {
