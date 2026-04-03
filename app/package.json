@@ -1,11 +1,12 @@
 {
-  "name": "OpenLuckyApp",
-  "version": "v1.2.0-rc1",
+  "name": "openlucky-app",
+  "version": "v1.2.1-rc1",
   "description": "",
   "main": "main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run update-emoji",
+    "update-emoji": "node scripts/update-emoji.js",
     "electron": "electron .",
     "start": "npm run build && electron .",
     "build:win": "npm run build && electron-builder --win --x64",
@@ -13,7 +14,7 @@
   },
   "keywords": [],
   "author": "ZhZhou",
-  "license": "Apache License 2.0",
+  "license": "Apache-2.0",
   "type": "commonjs",
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.5",
@@ -22,7 +23,11 @@
     "vite": "^8.0.1"
   },
   "dependencies": {
+    "@fontsource/noto-sans-sc": "^5.2.9",
+    "@twemoji/api": "^17.0.2",
+    "@twemoji/svg": "^15.0.0",
     "sharp": "^0.34.5",
+    "tmp": "^0.2.5",
     "vue": "^3.5.30",
     "vue-router": "^5.0.3"
   },
@@ -34,7 +39,8 @@
     },
     "files": [
       "main.js",
-      "dist/**/*"
+      "dist/**/*",
+      "build-resources/emoji/**/*"
     ],
     "win": {
       "target": [

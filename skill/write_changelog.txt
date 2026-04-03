@@ -1,0 +1,9 @@
+前提1：仅在用户在非 main 分支下、且当前分支已完全提交时，才执行这个 skill。
+
+动作1：更新 main 分支、推送当前分支到远程。
+动作2：对照当前分支和 main 分支，撰写 changelog（放在 changelog 目录）
+    英文版文件名：CHANGELOG.en_US.<tag_version>.md
+    中文版文件名：CHANGELOG.zh_Hans.<tag_version>.md
+    <tag_version> 从 app/package.json 中读取 .version 字段。
+
+注意，如果有同名文件，则让用户确认是否要替换，如果用户不替换，则不要执行。

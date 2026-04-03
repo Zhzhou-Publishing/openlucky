@@ -1,74 +1,153 @@
-import cv2
+import io
+import rawpy
 import numpy as np
-import yaml
+import cv2
 
 
-def process_film_with_params(input_path, output_path, preset_mask_r, preset_mask_g, preset_mask_b, preset_gamma=1.0, preset_contrast=1.0):
-    # 1. Read image (supports TIFF, allows reading 16bit)
-    img = cv2.imread(str(input_path), cv2.IMREAD_UNCHANGED)
-    if img is None:
-        print(f"Error: Cannot read input file '{input_path}'")
-        return
+def process_film_bytestream_with_params(
+    input_bytes,
+    preset_mask_r,
+    preset_mask_g,
+    preset_mask_b,
+    preset_gamma=1.0,
+    preset_contrast=1.0,
+    is_raw=False,
+):
+    """
+    Process byte stream image, supports RAW format toggle
+    """
+    # 1. Explicitly decode image
+    if is_raw:
+        # Process RAW format: use rawpy engine
+        with rawpy.imread(io.BytesIO(input_bytes)) as raw:
+            # Determine demosaic algorithm based on camera format
+            # Since we don't have filename info in byte stream mode, we need to detect format
+            # For simplicity, default to AAHD unless Fuji RAF is detected via metadata
+            # Note: Accurate Fuji RAF detection from byte stream would require additional metadata parsing
+            # Using AAHD as default for byte stream processing
+            demosaic_algorithm = rawpy.DemosaicAlgorithm.AAHD
 
-    # 转换为浮点数进行高精度计算
-    img = img.astype(np.float32)
+            # postprocess returns uint16 array in RGB order
+            img = (
+                raw.postprocess(
+                    # Demosaic algorithm (default AAHD for byte stream processing)
+                    demosaic_algorithm=demosaic_algorithm,
+                    # 2. Crucial: Disable LibRaw's built-in noise reduction
+                    # AAHD may produce minor artifacts, LibRaw might use FBDD to remove them by default,
+                    # but FBDD damages film grain texture. To preserve authentic RAW, it must be turned off.
+                    fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Off,
+                    # 3. Gamma: Must remain (1, 1) linear.
+                    gamma=(1, 1),
+                    # 4. Brightness: Must be True. Disable automatic brightness stretching.
+                    no_auto_bright=True,
+                    # 5. Bit depth: Must be 16. For dynamic range after negative inversion.
+                    output_bps=16,
+                    # 6. White balance:
+                    # For photographing negatives, it's recommended to enable camera WB
+                    # (calibrated against the backlight panel during shooting),
+                    # so the resulting TIFF channel ratios are roughly correct, facilitating subsequent inversion.
+                    use_camera_wb=True,
+                    # 7. Brightness gain: Keep at 1.0.
+                    bright=1.0,
+                ).astype(np.float32)
+                / 65535.0
+            )
+        is_16bit_target = True
+    else:
+        # Process regular formats: use OpenCV engine
+        nparr = np.frombuffer(input_bytes, np.uint8)
+        img_raw = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+        if img_raw is None:
+            return None
 
-    # 2. 去色罩 (Color Mask Removal)
-    # 根据预设值归一化各个通道
-    img[:, :, 0] /= (preset_mask_b / 255.0)  # Blue
-    img[:, :, 1] /= (preset_mask_g / 255.0)  # Green
-    img[:, :, 2] /= (preset_mask_r / 255.0)  # Red
-    img = np.clip(img, 0, 255)
+        # Convert to RGB (OpenCV default is BGR)
+        img = cv2.cvtColor(img_raw, cv2.COLOR_BGR2RGB).astype(np.float32)
 
-    # 3. 颜色反转
-    img = 255.0 - img
+        max_val = 65535.0 if img_raw.dtype == np.uint16 else 255.0
+        img /= max_val
+        is_16bit_target = img_raw.dtype == np.uint16
 
-    # 4. Gamma 修正 (让暗部细节更自然)
+    # 2. Remove color mask (operate in 0-1 space)
+    # At this point, img is confirmed to be in RGB order
+    img[:, :, 0] /= preset_mask_r / 255.0  # Red
+    img[:, :, 1] /= preset_mask_g / 255.0  # Green
+    img[:, :, 2] /= preset_mask_b / 255.0  # Blue
+    img = np.clip(img, 0, 1.0)
+
+    # 3. Color inversion (in 0-1 space, it's 1.0 - img)
+    img = 1.0 - img
+
+    # 4. Gamma correction
+    # For linear RAW, input around 0.45 is recommended; for gamma-corrected images, around 1.0 for fine-tuning
     if preset_gamma != 1.0:
-        img = np.power(img / 255.0, preset_gamma) * 255.0
+        # Perform power operation in 0-1 space for maximum precision
+        img = np.power(img, preset_gamma)
 
-    # 5. 自动色阶与对比度微调
+    # 5. Auto levels and contrast fine-tuning
     for i in range(3):
-        low = np.percentile(img[:, :, i], 0.5)  # 忽略极小比例的黑场噪点
-        high = np.percentile(img[:, :, i], 99.5)  # 忽略极小比例的白场噪点
-        img[:, :, i] = np.clip((img[:, :, i] - low) * (255.0 / (high - low + 1e-5)) * preset_contrast, 0, 255)
+        low = np.percentile(img[:, :, i], 0.5)
+        high = np.percentile(img[:, :, i], 99.5)
+        # Linear stretch and apply contrast
+        img[:, :, i] = np.clip(
+            (img[:, :, i] - low) * (1.0 / (high - low + 1e-5)) * preset_contrast, 0, 1.0
+        )
 
-    # 6. Save result
-    img_final = img.astype(np.uint8)
-    cv2.imwrite(str(output_path), img_final)
-    print(f"Processing successful! Result saved to: {output_path}")
-    
-    return {
-        "mask_r": preset_mask_r,
-        "mask_g": preset_mask_g,
-        "mask_b": preset_mask_b,
-        "gamma": preset_gamma,
-        "contrast": preset_contrast
-    }
+    # 6. Encode back to byte stream
+    # Remember to convert back to BGR for OpenCV encoding
+    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+    if is_16bit_target:
+        # Output 16bit TIFF to preserve details
+        success, encoded_img = cv2.imencode(
+            ".tif", (img_bgr * 65535.0).astype(np.uint16)
+        )
+    else:
+        # Output 8bit PNG
+        success, encoded_img = cv2.imencode(".png", (img_bgr * 255.0).astype(np.uint8))
+
+    return encoded_img.tobytes() if success else None
 
 
-def process_film(input_path, output_path, config_path, preset_name="kodak_ultramax_400"):
-    # 1. 加载配置
+def process_film_with_params(
+    input_path,
+    output_path,
+    preset_mask_r,
+    preset_mask_g,
+    preset_mask_b,
+    preset_gamma=1.0,
+    preset_contrast=1.0,
+):
+    # 1. Read input file as byte stream
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-        preset = config['presets'].get(preset_name)
-        if not preset:
-            print(f"Error: Preset '{preset_name}' not found in config file")
-            return
+        with open(input_path, "rb") as f:
+            input_bytes = f.read()
     except Exception as e:
-        print(f"Cannot read config file: {e}")
+        print(f"Error: Cannot read input file '{input_path}': {e}")
         return
 
-    # 2. 调用核心处理函数
-    process_film_with_params(
-        input_path,
-        output_path,
-        preset_mask_b=preset['mask_b'],
-        preset_mask_g=preset['mask_g'],
-        preset_mask_r=preset['mask_r'],
-        preset_gamma=preset.get('gamma', 1.0),
-        preset_contrast=preset.get('contrast', 1.0)
+    # Support raw format toggle, check file extension
+    ext = input_path.suffix.lower()
+    raw_extensions = [".arw", ".cr2", ".cr3", ".nef", ".dng", ".orf", ".raf"]
+
+    # 2. Call byte stream processing function
+    output_bytes = process_film_bytestream_with_params(
+        input_bytes,
+        preset_mask_r=preset_mask_r,
+        preset_mask_g=preset_mask_g,
+        preset_mask_b=preset_mask_b,
+        preset_gamma=preset_gamma,
+        preset_contrast=preset_contrast,
+        is_raw=ext in raw_extensions,
     )
 
-    return config
+    # 3. Write output byte stream to file
+    if output_bytes is None:
+        print(f"Error: Failed to process image from '{input_path}'")
+        return
+
+    try:
+        with open(output_path, "wb") as f:
+            f.write(output_bytes)
+        print(f"Successfully saved to: {output_path}")
+    except Exception as e:
+        print(f"Error: Cannot write output file '{output_path}': {e}")

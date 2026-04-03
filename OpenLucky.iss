@@ -1,6 +1,6 @@
 ; --- Inno Setup 脚本 (修复版) ---
 #define MyAppName "OpenLucky"
-#define MyAppVersion "v1.2.0-rc1"
+#define MyAppVersion "v1.2.1-rc1"
 #define MyAppPublisher "Ares"
 #define MyAppExeName "openlucky.exe"
 
@@ -21,6 +21,9 @@ OutputBaseFilename=OpenLucky_{#MyAppVersion}_windows-x64_Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+; 允许用户自定义安装目录
+DisableDirPage=no
+DisableProgramGroupPage=no
 
 [Files]
 ; 3. 释放 bin 目录下的所有 exe

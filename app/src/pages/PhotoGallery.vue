@@ -3,7 +3,7 @@
     <div class="header">
       <button @click="goBack" class="back-button">← Back</button>
       <h1 class="page-title">{{ title }}</h1>
-      <button @click="loadImages" class="refresh-button" :disabled="isLoading">
+      <button @click="handleRefresh" class="refresh-button" :disabled="isLoading">
         🔄 Refresh
       </button>
       <span class="count-badge">{{ images.length }} images</span>
@@ -17,7 +17,7 @@
     <div v-else-if="images.length === 0" class="empty-state">
       <p class="empty-icon">📷</p>
       <h2>No Images Found</h2>
-      <p>No image files (jpg, jpeg, png, gif, webp, tiff) were found in the selected directory.</p>
+      <p>No image files (jpg, jpeg, png, gif, webp, tiff, arw, cr2, cr3, nef, dng, orf, raf) were found in the selected directory.</p>
     </div>
 
     <div v-else class="gallery-grid">
@@ -30,20 +30,17 @@
     </div>
 
     <!-- Bottom Menu Bar -->
-    <div v-if="!isLoading && images.length > 0" class="bottom-menu">
-      <div class="menu-item">
-        <label class="menu-label">Preset:</label>
-        <select v-model="selectedPreset" class="preset-select" :disabled="isLoading || isApplyingPreset || isLoadingPresets">
-          <option v-for="preset in presets" :key="preset.value" :value="preset.value">
-            {{ preset.label }}
-          </option>
-        </select>
-        <button @click="applyPreset" class="apply-button" :disabled="isLoading || isApplyingPreset || isLoadingPresets">
-          {{ applyButtonText }}
-          <span v-if="hasUnappliedChanges && !isLoadingPresets" class="red-dot"></span>
-        </button>
-      </div>
-    </div>
+    <BottomMenuBar
+      ref="bottomMenuBarRef"
+      :selected-preset="selectedPreset"
+      :has-unapplied-changes="hasUnappliedChanges"
+      :is-loading="isLoading"
+      :is-applying-preset="isApplyingPreset"
+      :images-count="images.length"
+      @update:selected-preset="selectedPreset = $event"
+      @apply="applyPreset"
+      @presets-loaded="handlePresetsLoaded"
+    />
 
     <!-- Image Modal -->
     <div v-if="selectedImage" class="modal" @click="closeModal">
@@ -59,6 +56,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import BottomMenuBar from '../components/BottomMenuBar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -69,14 +67,7 @@ const selectedImage = ref(null)
 const selectedPreset = ref('lucky_c200_2025')
 const hasUnappliedChanges = ref(true)
 const isApplyingPreset = ref(false)
-const isLoadingPresets = ref(true)
 const workingDirectory = ref('')
-
-const applyButtonText = computed(() => {
-  return isApplyingPreset.value ? 'Applying...' : 'Apply'
-})
-
-const presets = ref([])
 
 const directoryPath = computed(() => route.query.path || '')
 
@@ -195,6 +186,12 @@ const loadImages = async () => {
       ipcRenderer.once('images-loaded', (_, result) => {
         images.value = result.images
         isLoading.value = false
+
+        // Check for RAW files that are still converting
+        const convertingRawFiles = result.images.filter(img => img.isRaw && !img.converted)
+        if (convertingRawFiles.length > 0) {
+          startRawConversionMonitoring()
+        }
       })
 
       ipcRenderer.once('images-error', (_, error) => {
@@ -212,37 +209,55 @@ const loadImages = async () => {
   }
 }
 
-const loadPresets = async () => {
-  try {
-    if (window.require) {
-      const ipcRenderer = window.require('electron').ipcRenderer
+let rawConversionMonitorInterval = null
 
-      ipcRenderer.send('get-presets')
+const startRawConversionMonitoring = () => {
+  if (rawConversionMonitorInterval) {
+    clearInterval(rawConversionMonitorInterval)
+  }
 
-      ipcRenderer.once('presets-loaded', (_, result) => {
-        presets.value = result.presets
-        isLoadingPresets.value = false
-        // Select first preset by default if available
-        if (presets.value.length > 0 && !presets.value.find(p => p.value === selectedPreset.value)) {
-          selectedPreset.value = presets.value[0].value
-        }
-      })
+  rawConversionMonitorInterval = setInterval(() => {
+    if (!window.require) return
 
-      ipcRenderer.once('presets-error', (_, error) => {
-        console.error('Error loading presets:', error)
-        isLoadingPresets.value = false
-      })
-    }
-  } catch (error) {
-    console.error('Error loading presets:', error)
-    isLoadingPresets.value = false
+    const ipcRenderer = window.require('electron').ipcRenderer
+
+    ipcRenderer.send('get-images', workingDirectory.value)
+
+    ipcRenderer.once('images-loaded', (_, result) => {
+      const hasUnconvertedRaw = result.images.some(img => img.isRaw && !img.converted)
+      images.value = result.images
+
+      // Stop monitoring if all RAW files are converted
+      if (!hasUnconvertedRaw && rawConversionMonitorInterval) {
+        clearInterval(rawConversionMonitorInterval)
+        rawConversionMonitorInterval = null
+      }
+    })
+  }, 2000) // Check every 2 seconds
+}
+
+const stopRawConversionMonitoring = () => {
+  if (rawConversionMonitorInterval) {
+    clearInterval(rawConversionMonitorInterval)
+    rawConversionMonitorInterval = null
+  }
+}
+
+const handleRefresh = async () => {
+  await loadImages()
+}
+
+const handlePresetsLoaded = (presets) => {
+  // Select first preset by default if available
+  if (presets && presets.length > 0 && !presets.find(p => p.value === selectedPreset.value)) {
+    selectedPreset.value = presets[0].value
   }
 }
 
 onMounted(() => {
   workingDirectory.value = directoryPath.value
-  // Run loadImages and loadPresets in parallel
-  Promise.all([loadPresets(), loadImages()])
+  // Load images
+  loadImages()
   // Make window resizable when entering photo gallery
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
@@ -256,6 +271,8 @@ onUnmounted(() => {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', false)
   }
+  // Stop RAW conversion monitoring
+  stopRawConversionMonitoring()
 })
 </script>
 
@@ -485,106 +502,5 @@ onUnmounted(() => {
   color: white;
   text-align: center;
   font-size: 14px;
-}
-
-.bottom-menu {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-  padding: 16px 20px;
-  display: flex;
-  justify-content: center;
-  z-index: 100;
-  animation: slideUp 1s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.menu-label {
-  font-size: 14px;
-  color: #333;
-  font-weight: 500;
-}
-
-.preset-select {
-  padding: 8px 12px;
-  border: 1px solid #d0d0d0;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #333;
-  background: white;
-  cursor: pointer;
-  transition: border-color 0.2s ease;
-  min-width: 400px;
-}
-
-.preset-select:hover {
-  border-color: #42b883;
-}
-
-.preset-select:focus {
-  outline: none;
-  border-color: #42b883;
-  box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.1);
-}
-
-.preset-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.apply-button {
-  padding: 8px 16px;
-  background: #42b883;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease, opacity 0.2s ease;
-  position: relative;
-  margin-left: 10px;
-  min-width: 120px;
-}
-
-.apply-button:hover:not(:disabled) {
-  background: #35a372;
-}
-
-.apply-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.red-dot {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 12px;
-  height: 12px;
-  background: #ff4444;
-  border-radius: 50%;
-  border: 2px solid white;
 }
 </style>
