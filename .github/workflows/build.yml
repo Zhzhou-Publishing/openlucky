@@ -40,10 +40,8 @@ jobs:
         working-directory: ./app
         run: npm run build:win:portable
 
-      - name: Download Inno Setup
-        run: |
-          curl -L -o innosetup.exe https://files.jrsoftware.org/is/6/innosetup-6.3.3.exe
-          ./innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+      - name: Install Inno Setup
+        uses: Cyberboss/install-inno-setup@v1
 
       - name: Build installer
         run: iscc OpenLucky.iss
