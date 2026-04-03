@@ -57,13 +57,13 @@ jobs:
         shell: pwsh
 
       - name: Generate MD5 checksum
-        working-directory: ./Output
+        # 移除了无效的 working-directory，改在根目录搜索生成的 exe
         run: |
-          Get-ChildItem -Filter *.exe | ForEach-Object {
+          Get-ChildItem -Filter OpenLucky*.exe | ForEach-Object {
             $checksum = (Get-FileHash -Path $_.FullName -Algorithm MD5).Hash.ToLower()
             $checksumFile = "$($_.BaseName).checksum.txt"
-            "$($_.Name):$checksum" | Out-File -FilePath $checksumFile
-            Write-Host "Created $checksumFile with MD5: $checksum"
+            "$($_.Name):$checksum" | Out-File -FilePath $checksumFile -Encoding utf8
+            Write-Host "Created $checksumFile for $($_.Name)"
           }
         shell: pwsh
 
@@ -72,15 +72,15 @@ jobs:
         with:
           name: openlucky-${{ steps.get_version.outputs.version }}
           path: |
-            Output/*.exe
-            Output/*.checksum.txt
+            OpenLucky*.exe
+            *.checksum.txt
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            Output/*.exe
-            Output/*.checksum.txt
+            OpenLucky*.exe
+            *.checksum.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
