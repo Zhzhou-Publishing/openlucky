@@ -40,11 +40,10 @@ jobs:
         working-directory: ./app
         run: npm run build:win:portable
 
-      - name: Install Inno Setup
-        uses: Cyberboss/install-inno-setup@v1
-
       - name: Build installer
-        run: iscc OpenLucky.iss
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" OpenLucky.iss
+        shell: pwsh
 
       - name: Get version
         id: get_version
