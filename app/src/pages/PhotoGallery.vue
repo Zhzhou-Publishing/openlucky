@@ -87,8 +87,8 @@ const originalDirectoryPath = ref('')
 const directoryPath = computed(() => route.query.workingDirectory || route.query.path || '')
 
 const title = computed(() => {
-  if (workingDirectory.value) {
-    const parts = workingDirectory.value.split(/[/\\]/)
+  if (originalDirectoryPath.value) {
+    const parts = originalDirectoryPath.value.split(/[/\\]/)
     return parts[parts.length - 1] || 'Photo Gallery'
   }
   return 'Photo Gallery'

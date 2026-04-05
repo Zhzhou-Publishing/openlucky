@@ -119,8 +119,8 @@ const isCurrentImageAffected = computed(() => {
 })
 
 const currentPageTitle = computed(() => {
-  if (workingDirectory.value) {
-    const parts = workingDirectory.value.split(/[/\\]/)
+  if (originalDirectory.value) {
+    const parts = originalDirectory.value.split(/[/\\]/)
     return parts[parts.length - 1] || 'Photo Edit'
   }
   return 'Photo Edit'
