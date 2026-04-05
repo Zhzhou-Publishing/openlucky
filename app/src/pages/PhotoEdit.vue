@@ -72,6 +72,9 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import NumberInput from '../components/NumberInput.vue'
 
+// Get path module for Electron environment
+const path = window.require ? window.require('path') : { basename: (p) => p }
+
 const router = useRouter()
 const route = useRoute()
 
@@ -91,6 +94,8 @@ const imageTimestamp = ref(Date.now())
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 
 const workingDirectory = computed(() => route.query.workingDirectory || '')
+const outputDirectory = computed(() => route.query.outputDirectory || '')
+const originalDirectory = computed(() => route.query.originalDirectory || '')
 const filename = computed(() => route.query.filename || '')
 
 const currentFileName = computed(() => {
@@ -114,8 +119,8 @@ const isCurrentImageAffected = computed(() => {
 })
 
 const currentPageTitle = computed(() => {
-  if (workingDirectory.value) {
-    const parts = workingDirectory.value.split(/[/\\]/)
+  if (originalDirectory.value) {
+    const parts = originalDirectory.value.split(/[/\\]/)
     return parts[parts.length - 1] || 'Photo Edit'
   }
   return 'Photo Edit'
@@ -161,7 +166,8 @@ const apply = () => {
 
     // Send request to main process
     ipcRenderer.send('apply-filmparam', {
-      directoryPath: workingDirectory.value,
+      inputPath: workingDirectory.value,
+      outputPath: outputDirectory.value,
       filename: imageName,
       params: params
     })
@@ -179,11 +185,30 @@ const apply = () => {
     const handleResponse = (_, result) => {
       // 关键：由于是全局频道，所有的 apply 请求都会触发这个 handleResponse
       // 我们必须判断返回的结果是不是当前这张图
-      if (result.filename === imageName || result.outputPath?.includes(imageName)) {
+      // result.outputFile 是完整路径，需要从中提取文件名
+      const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
+      console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
+      if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
         imageTimestamp.value = Date.now();
         loadFullResImage();
         loadPresets(true);
         affectedImages.delete(imageName);
+
+        // Copy .preset.json from working directory to original directory
+        if (originalDirectory.value) {
+          ipcRenderer.send('copy-preset-json', {
+            workingDirectory: workingDirectory.value,
+            originalDirectory: originalDirectory.value
+          });
+
+          ipcRenderer.once('copy-preset-json-success', () => {
+            console.log('.preset.json copied to original directory successfully')
+          })
+
+          ipcRenderer.once('copy-preset-json-error', (_, error) => {
+            console.error('Error copying .preset.json:', error.message)
+          })
+        }
 
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
@@ -194,7 +219,9 @@ const apply = () => {
     const handleError = (_, error) => {
       console.error('Error applying film parameters:', error);
       // 关键：同样要判断是不是当前这张图的错误
-      if (error.filename === imageName || error.outputPath?.includes(imageName)) {
+      // error.outputFile 是完整路径，需要从中提取文件名
+      const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
+      if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
         // Reset applying state to re-enable controls immediately on error
         isApplying.value = false;
         affectedImages.delete(imageName);
@@ -239,7 +266,8 @@ const applyAll = () => {
 
     // Send request to main process
     ipcRenderer.send('apply-filmparambatch', {
-      directoryPath: workingDirectory.value,
+      inputPath: workingDirectory.value,
+      outputPath: outputDirectory.value,
       params: params
     })
 
@@ -260,6 +288,22 @@ const applyAll = () => {
       // Reload presets and then enable controls
       loadPresets(true)
       affectedImages.clear()
+
+      // Copy .preset.json from working directory to original directory
+      if (originalDirectory.value) {
+        ipcRenderer.send('copy-preset-json', {
+          workingDirectory: workingDirectory.value,
+          originalDirectory: originalDirectory.value
+        })
+
+        ipcRenderer.once('copy-preset-json-success', () => {
+          console.log('.preset.json copied to original directory successfully')
+        })
+
+        ipcRenderer.once('copy-preset-json-error', (_, error) => {
+          console.error('Error copying .preset.json:', error.message)
+        })
+      }
     })
 
     ipcRenderer.once('filmparambatch-apply-error', (_, error) => {
@@ -308,7 +352,7 @@ const loadFullResImage = async () => {
           const height = previousImageDimensions.value.height
           const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
             <rect width="${width}" height="${height}" fill="#cccccc"/>
-            <text x="${width/2}" y="${height/2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#666666">RAW file converting...</text>
+            <text x="${width / 2}" y="${height / 2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#666666">RAW file converting...</text>
           </svg>`
           fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
         } else {
