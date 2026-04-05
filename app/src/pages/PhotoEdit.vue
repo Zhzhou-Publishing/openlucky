@@ -72,6 +72,9 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import NumberInput from '../components/NumberInput.vue'
 
+// Get path module for Electron environment
+const path = window.require ? window.require('path') : { basename: (p) => p }
+
 const router = useRouter()
 const route = useRoute()
 
@@ -182,7 +185,10 @@ const apply = () => {
     const handleResponse = (_, result) => {
       // 关键：由于是全局频道，所有的 apply 请求都会触发这个 handleResponse
       // 我们必须判断返回的结果是不是当前这张图
-      if (result.filename === imageName || result.outputPath?.includes(imageName)) {
+      // result.outputFile 是完整路径，需要从中提取文件名
+      const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
+      console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
+      if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
         imageTimestamp.value = Date.now();
         loadFullResImage();
         loadPresets(true);
@@ -213,7 +219,9 @@ const apply = () => {
     const handleError = (_, error) => {
       console.error('Error applying film parameters:', error);
       // 关键：同样要判断是不是当前这张图的错误
-      if (error.filename === imageName || error.outputPath?.includes(imageName)) {
+      // error.outputFile 是完整路径，需要从中提取文件名
+      const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
+      if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
         // Reset applying state to re-enable controls immediately on error
         isApplying.value = false;
         affectedImages.delete(imageName);
@@ -344,7 +352,7 @@ const loadFullResImage = async () => {
           const height = previousImageDimensions.value.height
           const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
             <rect width="${width}" height="${height}" fill="#cccccc"/>
-            <text x="${width/2}" y="${height/2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#666666">RAW file converting...</text>
+            <text x="${width / 2}" y="${height / 2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#666666">RAW file converting...</text>
           </svg>`
           fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
         } else {
