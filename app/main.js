@@ -4,6 +4,7 @@ const path = require('path')
 const sharp = require('sharp')
 const { spawn } = require('child_process')
 const tmp = require('tmp')
+const { IMAGE_EXTENSIONS, RAW_EXTENSIONS, TIFF_FORMATS } = require('./src/constants/imageFormats')
 
 // Set tmp to not cleanup on exit to preserve converted files during session
 tmp.setGracefulCleanup()
@@ -32,8 +33,12 @@ function createWindow() {
   // Handle check-openlucky request
   ipcMain.on('check-openlucky', async (event) => {
     try {
+      const command = 'openlucky'
+      const args = ['--help']
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
       // Spawn the process to check if openlucky --help works
-      const process = spawn('openlucky', ['--help'], {
+      const process = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
         detached: true
@@ -97,18 +102,13 @@ function createWindow() {
   // Handle get-images request
   ipcMain.on('get-images', async (_, directoryPath) => {
     try {
-      // Supported image extensions
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff']
-      const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
-      const tiffFormats = ['.tif', '.tiff']
-
       // Read files in the directory
       const files = fs.readdirSync(directoryPath)
 
       // Filter for image files (including RAW files)
       const allImageFiles = files.filter(file => {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return (imageExtensions.includes(ext) || rawExtensions.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
+        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
       // Create temporary thumbnails directory using tmp
@@ -144,12 +144,12 @@ function createWindow() {
         }
 
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        const isRaw = rawExtensions.includes(ext)
+        const isRaw = RAW_EXTENSIONS.includes(ext)
 
         let imageUrl = `file://${fullPath}?t=${timestamp}`
 
         // Generate thumbnail for tif/tiff files
-        if (tiffFormats.includes(ext)) {
+        if (TIFF_FORMATS.includes(ext)) {
           try {
             const thumbnailPath = path.join(tempDir, `${path.basename(file, ext)}.jpg`)
             await sharp(fullPath)
@@ -185,6 +185,7 @@ function createWindow() {
       // Construct the command
       const command = 'openlucky'
       const args = ['config', 'read', '-f', 'json']
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       // Spawn the process
       const process = spawn(command, args, {
@@ -234,10 +235,6 @@ function createWindow() {
   // Handle prepare-working-directory request (from PhotoGallery)
   ipcMain.on('prepare-working-directory', async (event, directoryPath) => {
     try {
-      // Supported image extensions
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff']
-      const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
-
       // Create temporary working directory
       const workingDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
       const workingDirectory = workingDirObj.name
@@ -249,29 +246,28 @@ function createWindow() {
       const filesToProcess = files.filter(file => {
         if (file === '.preset.json') return true
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return (imageExtensions.includes(ext) || rawExtensions.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
+        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
       // Separate RAW and non-RAW files
       const rawFiles = filesToProcess.filter(file => {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return rawExtensions.includes(ext)
+        return RAW_EXTENSIONS.includes(ext)
       })
 
       const nonRawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !rawExtensions.includes(ext)
+        return !RAW_EXTENSIONS.includes(ext)
       })
 
       // Function to check if image needs resize (long edge >= 800)
       const needsResize = async (imagePath) => {
         try {
           const ext = path.extname(imagePath).toLowerCase()
-          const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
 
           // For RAW files, assume they need resizing (camera RAW files are typically large)
-          if (rawExtensions.includes(ext)) {
+          if (RAW_EXTENSIONS.includes(ext)) {
             return true
           }
 
@@ -290,7 +286,11 @@ function createWindow() {
       // Function to resize image using openlucky tool resize command
       const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
-          const process = spawn('openlucky', ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800'], {
+          const command = 'openlucky'
+          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800']
+          console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
+          const process = spawn(command, args, {
             stdio: ['pipe', 'pipe', 'pipe'],
             windowsHide: true
           })
@@ -385,10 +385,6 @@ function createWindow() {
   // Handle prepare-working-directory-from-selected request (from PhotoDirectory)
   ipcMain.on('prepare-working-directory-from-selected', async (event, directoryPath) => {
     try {
-      // Supported image extensions
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff']
-      const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
-
       // Create temporary working directory
       const workingDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
       const workingDirectory = workingDirObj.name
@@ -401,30 +397,29 @@ function createWindow() {
         if (file === '.preset.json') return true
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
         const isFile = fs.statSync(path.join(directoryPath, file)).isFile()
-        return isFile && (imageExtensions.includes(ext) || rawExtensions.includes(ext))
+        return isFile && (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext))
       })
 
       // Separate RAW and non-RAW files
       const rawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return rawExtensions.includes(ext)
+        return RAW_EXTENSIONS.includes(ext)
       })
 
       const nonRawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !rawExtensions.includes(ext)
+        return !RAW_EXTENSIONS.includes(ext)
       })
 
       // Function to check if image needs resize (long edge >= 800)
       const needsResize = async (imagePath) => {
         try {
           const ext = path.extname(imagePath).toLowerCase()
-          const rawExtensions = ['.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf']
 
           // For RAW files, assume they need resizing (camera RAW files are typically large)
-          if (rawExtensions.includes(ext)) {
+          if (RAW_EXTENSIONS.includes(ext)) {
             return true
           }
 
@@ -443,7 +438,11 @@ function createWindow() {
       // Function to resize image using openlucky tool resize command
       const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
-          const process = spawn('openlucky', ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800'], {
+          const command = 'openlucky'
+          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800']
+          console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
+          const process = spawn(command, args, {
             stdio: ['pipe', 'pipe', 'pipe'],
             windowsHide: true
           })
@@ -539,7 +538,6 @@ function createWindow() {
   ipcMain.on('get-full-res-image', async (event, { directoryPath, filename }) => {
     try {
       const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
-      const tiffFormats = ['.tif', '.tiff']
 
       let fullPath = path.join(directoryPath, filename)
 
@@ -565,7 +563,7 @@ function createWindow() {
       let imageUrl = `file://${fullPath}`
 
       // Convert tif/tiff files to jpg for browser compatibility
-      if (tiffFormats.includes(ext)) {
+      if (TIFF_FORMATS.includes(ext)) {
         try {
           // Create temporary directory using tmp
           const tempDirObj = tmp.dirSync({ prefix: 'photo-gallery-full-res_', unsafeCleanup: true })
@@ -613,6 +611,7 @@ function createWindow() {
       // Construct the command
       const command = 'openlucky'
       const args = ['filmbatch', '--input', inputPath, '--output', outputPath, '--preset', preset]
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('preset-apply-started', { message: 'Processing started' })
 
@@ -665,6 +664,7 @@ function createWindow() {
       // Construct the command
       const command = 'openlucky'
       const args = ['filmparam', '--input', inputFile, '--output', outputFile, '--param', params]
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparam-apply-started', { message: 'Processing started' })
 
@@ -711,6 +711,7 @@ function createWindow() {
       // Construct the command
       const command = 'openlucky'
       const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params]
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('filmparambatch-apply-started', { message: 'Batch processing started' })
 

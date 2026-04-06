@@ -2,6 +2,8 @@ import rawpy
 import cv2
 from pathlib import Path
 
+from cmd.constants.image_formats import TIFF_FORMATS
+
 
 def raw_to_tiff(input_path, output_path):
     """
@@ -19,8 +21,7 @@ def raw_to_tiff(input_path, output_path):
         output_path = Path(output_path)
 
         # Check if output_path has valid TIFF extension
-        valid_tiff_extensions = {".tif", ".tiff"}
-        if output_path.suffix.lower() not in valid_tiff_extensions:
+        if output_path.suffix.lower() not in TIFF_FORMATS:
             output_path = output_path.with_suffix(".tif")
 
         # 1. Read RAW file using rawpy

@@ -1,14 +1,8 @@
 import rawpy
 import cv2
-import numpy as np
 from pathlib import Path
 
-
-# 支持的图片扩展名
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
-
-# RAW格式扩展名
-RAW_EXTENSIONS = {'.arw', '.cr2', '.cr3', '.nef', '.dng', '.orf', '.raf'}
+from cmd.constants.image_formats import RAW_EXTENSIONS
 
 # 支持的边选项
 EDGE_OPTIONS = {'width', 'height', 'long-edge', 'short-edge'}

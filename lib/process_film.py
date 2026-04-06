@@ -3,6 +3,8 @@ import rawpy
 import numpy as np
 import cv2
 
+from cmd.constants.image_formats import RAW_EXTENSIONS
+
 
 def process_film_bytestream_with_params(
     input_bytes,
@@ -127,7 +129,6 @@ def process_film_with_params(
 
     # Support raw format toggle, check file extension
     ext = input_path.suffix.lower()
-    raw_extensions = [".arw", ".cr2", ".cr3", ".nef", ".dng", ".orf", ".raf"]
 
     # 2. Call byte stream processing function
     output_bytes = process_film_bytestream_with_params(
@@ -137,7 +138,7 @@ def process_film_with_params(
         preset_mask_b=preset_mask_b,
         preset_gamma=preset_gamma,
         preset_contrast=preset_contrast,
-        is_raw=ext in raw_extensions,
+        is_raw=ext in RAW_EXTENSIONS,
     )
 
     # 3. Write output byte stream to file

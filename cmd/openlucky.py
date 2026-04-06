@@ -10,10 +10,7 @@ from lib.process_film import process_film_with_params, process_film_bytestream_w
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from lib.raw_to_tiff import raw_to_tiff
 from lib.tool.resize import resize_image
-
-
-# 支持的图片扩展名
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
+from constants.image_formats import IMAGE_EXTENSIONS
 
 
 def save_preset_to_json(input_file, output_file, preset_config, preset_name, preset_label=None):
