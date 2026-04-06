@@ -30,21 +30,21 @@
       <!-- Operation Area -->
       <div class="operation-area">
         <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
-          :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
-          :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
-          :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
           :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
-          large-step-decrease-key="Alt + Shift + F" :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          large-step-decrease-key="Alt + Shift + F" :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
           :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
-          large-step-decrease-key="Alt + Shift + G" :disabled="isSavingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          large-step-decrease-key="Alt + Shift + G" :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
         <button @click="apply" class="apply-button" title="Enter" style="display: none;"
-          :disabled="(isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)">{{ $t('photoEdit.apply') }}</button>
+          :disabled="isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)">{{ $t('photoEdit.apply') }}</button>
         <button @click="applyAll" class="apply-all-button" title="CTRL + Enter"
-          :disabled="isApplying || affectedImages.size > 0 || isPreviewing || previewingImages.size > 0 || isSavingAll">{{ $t('photoEdit.applyAll') }}</button>
+          :disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll">{{ $t('photoEdit.applyAll') }}</button>
         <SaveAllButton :is-disabled="isSavingAll" @click="saveAll" />
       </div>
 
@@ -96,6 +96,7 @@ const route = useRoute()
 const images = ref([])
 const isLoading = ref(true)
 const isApplying = ref(false)
+const isApplyingAll = ref(false)
 const isPreviewing = ref(false)
 const isSavingAll = ref(false)
 const affectedImages = reactive(new Set())
@@ -348,6 +349,7 @@ const applyAll = () => {
     const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
 
     // Set applying state to disable controls
+    isApplyingAll.value = true
     isApplying.value = true
     images.value.forEach(img => affectedImages.add(img.name))
 
@@ -380,6 +382,7 @@ const applyAll = () => {
       loadFullResImage()
       // Reload presets and then enable controls
       loadPresets(true)
+      isApplyingAll.value = false
       affectedImages.clear()
     })
 
@@ -387,12 +390,14 @@ const applyAll = () => {
       console.error('Error applying film parameters to all images:', error)
       // Reset applying state to re-enable controls immediately on error
       isApplying.value = false
+      isApplyingAll.value = false
       affectedImages.clear()
     })
   } catch (error) {
     console.error('Error applying film parameters to all images:', error)
     // Reset applying state to re-enable controls immediately on error
     isApplying.value = false
+    isApplyingAll.value = false
     affectedImages.clear()
   }
 }
