@@ -26,6 +26,7 @@
         title="Ctrl + S"
       >
         {{ $t('saveAllButton.saveAll') }}
+        <span v-if="!isSaveAllClicked" class="red-dot"></span>
       </button>
     </div>
   </div>
@@ -35,6 +36,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getCachedPresets, updateCachedPresets } from '../utils/presetCache'
+import { globalState } from '../utils/globalState'
 
 const { t } = useI18n()
 
@@ -80,6 +82,8 @@ const internalSelectedPreset = computed({
 const applyButtonText = computed(() => {
   return props.isApplyingPreset ? t('bottomMenu.applying') : t('bottomMenu.apply')
 })
+
+const isSaveAllClicked = computed(() => globalState.isSaveAllClicked)
 
 const handleApplyPreset = () => {
   emit('apply')
@@ -270,6 +274,7 @@ onMounted(() => {
   transition: background 0.3s ease;
   margin-left: 10px;
   min-width: 120px;
+  position: relative;
 }
 
 .save-all-button:hover:not(:disabled) {
