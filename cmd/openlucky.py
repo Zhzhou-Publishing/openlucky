@@ -9,6 +9,7 @@ import yaml
 from lib.process_film import process_film_with_params, process_film_bytestream_with_params
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from lib.raw_to_tiff import raw_to_tiff
+from lib.tool.resize import resize_image
 
 
 # 支持的图片扩展名
@@ -153,6 +154,23 @@ def main():
     config_read_parser = config_subparsers.add_parser('read', help='Read configuration file')
     config_read_parser.add_argument('--config', '-c', required=False, help='Configuration file (yaml) path (auto-search if empty)')
     config_read_parser.add_argument('--format', '-f', default='yaml', choices=['json', 'yaml'], help='Output format (default: yaml)')
+
+    # tool subcommand
+    tool_parser = subparsers.add_parser('tool', help='Image processing tools')
+    tool_subparsers = tool_parser.add_subparsers(dest='tool_command', help='Available tool subcommands')
+
+    # tool resize subcommand
+    resize_parser = tool_subparsers.add_parser('resize', help='Resize images')
+    resize_parser.add_argument('--input', '-i', required=True, help='Input image file path')
+    resize_parser.add_argument('--output', '-o', required=True, help='Output image file path')
+    resize_parser.add_argument('--edge', '-e', default='long-edge',
+                               choices=['width', 'height', 'long-edge', 'short-edge'],
+                               help='Edge to use as resize basis (default: long-edge)')
+    resize_parser.add_argument('--mode', '-m', default='fixed-value',
+                               choices=['ratio', 'fixed-value'],
+                               help='Resize mode: ratio (0-1) or fixed-value (positive integer) (default: fixed-value)')
+    resize_parser.add_argument('--value', '-v', required=True,
+                               help='Resize value: ratio (0-1 float) or fixed-value (positive integer)')
 
     args = parser.parse_args()
 
@@ -585,6 +603,37 @@ def main():
                 print(config_content)
         else:
             config_parser.print_help()
+            sys.exit(1)
+
+    elif args.command == 'tool':
+        if args.tool_command == 'resize':
+            # Parse value based on mode
+            if args.mode == 'ratio':
+                try:
+                    value = float(args.value)
+                except ValueError:
+                    print(f"Error: Invalid value for ratio mode. Expected float in (0, 1], got '{args.value}'")
+                    sys.exit(1)
+            elif args.mode == 'fixed-value':
+                try:
+                    value = int(args.value)
+                except ValueError:
+                    print(f"Error: Invalid value for fixed-value mode. Expected positive integer, got '{args.value}'")
+                    sys.exit(1)
+
+            # Perform resize
+            success = resize_image(
+                input_path=args.input,
+                output_path=args.output,
+                edge=args.edge,
+                mode=args.mode,
+                value=value
+            )
+
+            if not success:
+                sys.exit(1)
+        else:
+            tool_parser.print_help()
             sys.exit(1)
 
     else:
