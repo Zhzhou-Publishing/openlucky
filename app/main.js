@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const sharp = require('sharp')
 const { spawn } = require('child_process')
 const tmp = require('tmp')
 const { IMAGE_EXTENSIONS, RAW_EXTENSIONS, TIFF_FORMATS } = require('./src/constants/imageFormats')
+const { checkForUpdates } = require('./versionChecker')
 
 // Set tmp to not cleanup on exit to preserve converted files during session
 tmp.setGracefulCleanup()
@@ -984,8 +985,58 @@ function createWindow() {
   })
 }
 
+// 显示更新通知对话框
+function showUpdateDialog(win, updateInfo) {
+  dialog.showMessageBox(win, {
+    type: 'info',
+    title: 'New Version',
+    message: `Found New Version ${updateInfo.version}`,
+    detail: `Release Time: ${new Date(updateInfo.publishedAt).toLocaleString()}`,
+    buttons: ['Download', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1
+  }).then((result) => {
+    if (result.response === 0) {
+      // 用户点击"立即下载"按钮，使用默认浏览器打开 release 页面
+      shell.openExternal(updateInfo.htmlUrl)
+    }
+  }).catch((error) => {
+    console.error('Error showing update dialog:', error)
+  })
+}
+
 // 当 Electron 完成初始化时被调用
-app.whenReady().then(createWindow)
+app.whenReady().then(async () => {
+  createWindow()
+
+  // 检查更新
+  const updateInfo = await checkForUpdates()
+  if (updateInfo && updateInfo.hasUpdate) {
+    // 等待窗口准备好后显示更新对话框
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win && !win.isDestroyed()) {
+      setTimeout(() => {
+        showUpdateDialog(win, updateInfo)
+      }, 1000) // 延迟 1 秒显示，确保窗口完全加载
+    }
+  } else if (updateInfo === null) {
+    // 检查更新失败，显示网络错误警告
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win && !win.isDestroyed()) {
+      setTimeout(() => {
+        dialog.showMessageBox(win, {
+          type: 'warning',
+          title: 'Checking Update Failed',
+          message: 'Cannot check update, please ensure that the nerwork to Github is accessible.',
+          buttons: ['OK']
+        }).catch((error) => {
+          console.error('Error showing network error dialog:', error)
+        })
+      }, 1000) // 延迟 1 秒显示，确保窗口完全加载
+    }
+  }
+  // updateInfo.hasUpdate === false 或 updateInfo.skipped === true 时不显示任何对话框
+})
 
 // 当所有窗口都被关闭时退出应用
 app.on('window-all-closed', () => {
