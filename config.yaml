@@ -14,6 +14,7 @@ presets:
     mask_g: 150  # 片基绿色通道参考值
     mask_b: 110  # 片基蓝色通道参考值
     contrast: 1.1 # 对比度微调
+    gamma: 2.2
 
   kodak_ultramax_400:
     label: "Kodak UltraMax 400 (Kodak Alaris 35mm)"
@@ -24,7 +25,7 @@ presets:
     # 图像增强参数
     contrast: 1.15      # UltraMax 反差较大，适合稍高的对比度
     saturation: 1.15    # 增加一点饱和度以体现其色彩鲜艳的特点
-    gamma: 0.45         # 针对负片转正后的明暗曲线修正
+    gamma: 2.2         # 针对负片转正后的明暗曲线修正
 
 
   fuji_c200:
@@ -33,6 +34,7 @@ presets:
     mask_g: 160
     mask_b: 130
     contrast: 1.2
+    gamma: 2.2
 
   fujifilm_c400:
     label: "Fujifilm C400 (America)"
@@ -40,7 +42,7 @@ presets:
     mask_r: 185
     mask_g: 155
     mask_b: 140
-    gamma: 0.5
+    gamma: 2.2
     contrast: 1.15
 
   # Kodak Vision3 50D (5203)：日光卷，颗粒极细，色罩相对较浅
@@ -49,7 +51,7 @@ presets:
     mask_r: 210
     mask_g: 150
     mask_b: 105
-    gamma: 0.55
+    gamma: 2.2
     contrast: 1.1
 
   # Kodak Vision3 250D (5207)：最全能的电影卷，色彩平衡极佳
@@ -58,7 +60,7 @@ presets:
     mask_r: 215
     mask_g: 140
     mask_b: 90
-    gamma: 0.52
+    gamma: 2.2
     contrast: 1.1
 
   # Kodak Vision3 200T (5213)：灯光卷，在日光下拍摄会严重偏蓝（需通过色罩抵消）
@@ -67,7 +69,7 @@ presets:
     mask_r: 220
     mask_g: 160
     mask_b: 80
-    gamma: 0.5
+    gamma: 2.2
     contrast: 1.2
 
   # Kodak Vision3 500T (5219)：高感灯光卷，暗部细节丰富，色罩较厚
@@ -76,7 +78,7 @@ presets:
     mask_r: 230
     mask_g: 155
     mask_b: 85
-    gamma: 0.48
+    gamma: 2.2
     contrast: 1.25
 
   # Agfa turia 100s
