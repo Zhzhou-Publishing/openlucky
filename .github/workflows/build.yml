@@ -8,7 +8,10 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
 
@@ -24,10 +27,17 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install pyinstaller
-          pip install -r requirements.txt
+          if (Test-Path requirements.txt) {
+            pip install -r requirements.txt
+          }
 
-      - name: Build CLI
+      - name: Build CLI (Windows optimized)
+        if: matrix.os == 'windows-latest'
         run: python -m PyInstaller --onefile --name openlucky --distpath bin cmd/openlucky.py
+
+      - name: Build CLI (macOS optimized)
+        if: matrix.os == 'macos-latest'
+        run: python3 -m PyInstaller --onedir --name openlucky --contents-directory lib --distpath bin cmd/openlucky.py
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -38,17 +48,25 @@ jobs:
         working-directory: ./app
         run: npm install
 
-      - name: Build desktop app
+      - name: Build Windows desktop app
+        if: matrix.os == 'windows-latest'
         working-directory: ./app
         run: npm run build:win:portable
 
-      - name: Build installer
+      - name: Build Windows installer
+        if: matrix.os == 'windows-latest'
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" OpenLucky.iss
         shell: pwsh
 
+      - name: Build macOS desktop app
+        if: matrix.os == 'macos-latest'
+        working-directory: ./app
+        run: yarn build:mac
+
       - name: Get version
         id: get_version
+        shell: pwsh
         run: |
           if ("${{ github.ref }}" -like "refs/tags/*") {
             $version = "${{ github.ref }}" -replace "refs/tags/", ""
@@ -56,26 +74,85 @@ jobs:
             $version = "latest"
           }
           echo "version=$version" >> $env:GITHUB_OUTPUT
-        shell: pwsh
 
-      - name: Generate MD5 checksum
+      - name: Generate SHA256 checksum (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
           # 在根目录搜索生成的安装程序
           Get-ChildItem -Filter OpenLucky*.exe | ForEach-Object {
-            $checksum = (Get-FileHash -Path $_.FullName -Algorithm MD5).Hash.ToLower()
+            $checksum = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLower()
             $checksumFile = "$($_.BaseName).checksum.txt"
             "$($_.Name):$checksum" | Out-File -FilePath $checksumFile -Encoding utf8
             Write-Host "Created $checksumFile for $($_.Name)"
           }
         shell: pwsh
 
+      - name: Generate SHA256 checksum (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # 搜索生成的 DMG 文件
+          find app/dist-electron -name "*.dmg" | while read dmgfile; do
+            filename=$(basename "$dmgfile")
+            checksum=$(shasum -a 256 "$dmgfile" | awk '{print $1}')
+            checksumfile="${filename%.*}.checksum.txt"
+            echo "$filename:$checksum" > "$checksumfile"
+            echo "Created $checksumfile for $filename"
+          done
+
+      - name: Upload Windows artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openlucky-windows-${{ steps.get_version.outputs.version }}
+          path: |
+            OpenLucky*.exe
+            *.checksum.txt
+
+      - name: Upload macOS artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openlucky-macos-${{ steps.get_version.outputs.version }}
+          path: |
+            app/dist-electron/*.dmg
+            *.checksum.txt
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: openlucky-windows-*
+          merge-multiple: true
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: openlucky-macos-*
+          merge-multiple: true
+
+      - name: Get version
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref }}" -replace "refs/tags/", ""
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Prepare Release Body
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           $version = "${{ steps.get_version.outputs.version }}"
           $logPath = "changelog/CHANGELOG.zh_Hans.$version.md"
           $tempPath = "release_body.md"
-          
+
           if (Test-Path $logPath) {
             Write-Host "Found changelog: $logPath"
             Copy-Item -Path $logPath -Destination $tempPath
@@ -85,21 +162,13 @@ jobs:
           }
         shell: pwsh
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: openlucky-${{ steps.get_version.outputs.version }}
-          path: |
-            OpenLucky*.exe
-            *.checksum.txt
-
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           body_path: release_body.md
           files: |
             OpenLucky*.exe
             *.checksum.txt
+            *.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

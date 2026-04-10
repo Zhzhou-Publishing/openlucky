@@ -1,6 +1,6 @@
 ; --- Inno Setup 脚本 (修复版) ---
 #define MyAppName "OpenLucky"
-#define MyAppVersion "v1.4.2-rc1"
+#define MyAppVersion "v1.4.2-rc2"
 #define MyAppPublisher "Ares"
 #define MyAppExeName "openlucky.exe"
 
@@ -28,9 +28,7 @@ DisableProgramGroupPage=no
 [Files]
 ; 3. 释放 bin 目录下的所有 exe
 Source: "bin\*.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-; 5. 释放 config.yaml 到用户主目录下的 .openlucky (读取当前登录用户的 Profile)
-Source: "config.yaml"; DestDir: "{%USERPROFILE}\.openlucky"; Flags: ignoreversion
-; 6. 释放 Electron 桌面应用的所有文件
+; 5. 释放 Electron 桌面应用的所有文件（config.yaml 由 extraResources 携带，应用启动时自动释放到用户目录）
 Source: "app\dist-electron\win-unpacked\*"; DestDir: "{app}\"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]

@@ -1,6 +1,6 @@
 {
   "name": "openlucky-app",
-  "version": "v1.4.2-rc1",
+  "version": "v1.4.2-rc2",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -61,7 +61,13 @@
           ]
         }
       ],
-      "icon": "build-resources/OpenLuckyIcon.ico"
+      "icon": "build-resources/OpenLuckyIcon.ico",
+      "extraResources": [
+        {
+          "from": "../config.yaml",
+          "to": "config.yaml"
+        }
+      ]
     },
     "mac": {
       "target": [
@@ -74,10 +80,15 @@
       ],
       "icon": "build-resources/OpenLuckyIcon.icns",
       "category": "public.app-category.productivity",
+      "artifactName": "OpenLucky_v${version}_${platform}_${arch}.${ext}",
       "extraResources": [
         {
           "from": "../bin/openlucky",
           "to": "openlucky"
+        },
+        {
+          "from": "../config.yaml",
+          "to": "config.yaml"
         }
       ]
     },
