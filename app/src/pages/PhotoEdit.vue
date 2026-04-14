@@ -24,7 +24,7 @@
           <div v-for="(image, index) in images" :key="image.name" class="thumbnail-item"
             :class="{ active: index === currentIndex, affected: affectedImages.has(image.name), 'cursor-wait': isAllImagesAffected }"
             @click="!isAllImagesAffected && selectImage(index)">
-            <img :src="getUrlWithTimestamp(image.url)" :alt="image.name" class="thumbnail" loading="lazy" />
+            <img :src="getImageUrlWithTimestamp(image)" :alt="image.name" class="thumbnail" loading="lazy" />
             <div v-if="affectedImages.has(image.name)" class="thumbnail-overlay">
               <div class="thumbnail-spinner"></div>
             </div>
@@ -112,7 +112,6 @@ const input3 = ref(0)
 const input4 = ref(0)
 const input5 = ref(0)
 const presetsData = ref({})
-const imageTimestamp = ref(Date.now())
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 const presetLoaded = ref(false)
 const rotateClockwiseMap = ref({}) // Store rotation for each image
@@ -194,8 +193,45 @@ const rotateCounterClockwiseBtn = () => {
   applyPreview()
 }
 
-const getUrlWithTimestamp = (url) => {
-  return url + '?t=' + imageTimestamp.value
+// Helper function to trigger Vue reactivity for images array
+const triggerImagesReactivity = () => {
+  // Push pop operation to trigger Vue's reactivity system
+  const temp = images.value[images.value.length - 1]
+  images.value.push(temp)
+  images.value.pop()
+}
+
+// Helper function to get image URL with timestamp
+const getImageUrlWithTimestamp = (image) => {
+  // Use image's own timestamp if available, otherwise use current time
+  const timestamp = image.timestamp || Date.now()
+
+  // Check if URL already has a 't' parameter
+  const urlParts = image.url.split('?')
+  if (urlParts.length > 1) {
+    // URL already has query parameters
+    const baseUrl = urlParts[0]
+    const queryString = urlParts[1]
+    const params = new URLSearchParams(queryString)
+
+    // Update the 't' parameter
+    params.set('t', timestamp)
+    return baseUrl + '?' + params.toString()
+  } else {
+    // URL has no query parameters, add 't' parameter
+    return image.url + '?t=' + timestamp
+  }
+}
+
+// Helper function to update image timestamp and trigger reactivity
+const updateImageTimestamp = (imageName) => {
+  const imageIndex = images.value.findIndex(img => img.name === imageName)
+  if (imageIndex !== -1) {
+    // Update the specific image's timestamp
+    images.value[imageIndex].timestamp = Date.now()
+    // Trigger Vue's reactivity system
+    triggerImagesReactivity()
+  }
 }
 
 const apply = () => {
@@ -249,7 +285,7 @@ const apply = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        imageTimestamp.value = Date.now();
+        updateImageTimestamp(imageName);
         loadFullResImage();
         loadPresets();
         affectedImages.delete(imageName);
@@ -330,7 +366,7 @@ const applyPreview = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        imageTimestamp.value = Date.now();
+        updateImageTimestamp(imageName);
         loadFullResImage();
         loadPresets();
         affectedImages.delete(imageName);
@@ -406,8 +442,11 @@ const applyAll = () => {
 
     ipcRenderer.once('filmparambatch-apply-success', (_, result) => {
       console.log(result.message)
-      // Update image timestamps to refresh display without reloading page
-      imageTimestamp.value = Date.now()
+      // Update all image timestamps to refresh display without reloading page
+      images.value.forEach(img => {
+        img.timestamp = Date.now()
+      })
+      triggerImagesReactivity()
       loadFullResImage()
       // Reload presets and enable controls
       loadPresets()
@@ -475,6 +514,11 @@ const saveAll = () => {
     // Handle success
     ipcRenderer.once('preset-to-batch-success', (_, result) => {
       console.log(result.message)
+      // Update all image timestamps to refresh display without reloading page
+      images.value.forEach(img => {
+        img.timestamp = Date.now()
+      })
+      triggerImagesReactivity()
       affectedImages.clear()
     })
 
@@ -609,7 +653,6 @@ const loadImages = async () => {
   try {
     isLoading.value = true
     fullResImageUrl.value = ''
-    imageTimestamp.value = Date.now()
     if (!workingDirectory.value) {
       goBack()
       return
@@ -621,9 +664,12 @@ const loadImages = async () => {
       ipcRenderer.send('get-images', workingDirectory.value, workingDirectory.value)
 
       ipcRenderer.once('images-loaded', (_, result) => {
-        images.value = result.images
+        images.value = result.images.map(img => ({
+          ...img,
+          timestamp: Date.now()
+        }))
         if (filename.value) {
-          const index = result.images.findIndex(img => img.name === filename.value)
+          const index = images.value.findIndex(img => img.name === filename.value)
           if (index !== -1) {
             currentIndex.value = index
           }
