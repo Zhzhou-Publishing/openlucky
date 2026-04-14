@@ -22,10 +22,10 @@
       <div class="thumbnails-container">
         <div class="thumbnails-wrapper">
           <div v-for="(image, index) in images" :key="image.name" class="thumbnail-item"
-            :class="{ active: index === currentIndex, affected: affectedImages.has(image.name) || previewingImages.has(image.name), 'cursor-wait': isSavingAll }"
-            @click="!isSavingAll && selectImage(index)">
+            :class="{ active: index === currentIndex, affected: affectedImages.has(image.name), 'cursor-wait': isAllImagesAffected }"
+            @click="!isAllImagesAffected && selectImage(index)">
             <img :src="getUrlWithTimestamp(image.url)" :alt="image.name" class="thumbnail" loading="lazy" />
-            <div v-if="affectedImages.has(image.name) || previewingImages.has(image.name)" class="thumbnail-overlay">
+            <div v-if="affectedImages.has(image.name)" class="thumbnail-overlay">
               <div class="thumbnail-spinner"></div>
             </div>
           </div>
@@ -38,14 +38,13 @@
         <div class="image-display">
           <div class="image-wrapper">
             <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
-            <div v-if="isApplying && isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
-            <div v-if="isPreviewing && !isApplying" class="previewing-badge">{{ $t('photoEdit.previewing') }}</div>
+            <div v-if="isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
             <!-- Rotate buttons -->
-            <div class="rotate-controls" v-show="!isSavingAll">
-              <button @click="rotateCounterClockwiseBtn" class="rotate-button rotate-counterclockwise-btn" :disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll" title="Rotate counter-clockwise">
+            <div class="rotate-controls">
+              <button @click="rotateCounterClockwiseBtn" class="rotate-button rotate-counterclockwise-btn" :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate counter-clockwise">
                 ↺
               </button>
-              <button @click="rotateClockwiseBtn" class="rotate-button rotate-clockwise-btn" :disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll" title="Rotate clockwise">
+              <button @click="rotateClockwiseBtn" class="rotate-button rotate-clockwise-btn" :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate clockwise">
                 ↻
               </button>
             </div>
@@ -56,22 +55,22 @@
       <!-- Operation Area - Fixed at Page Bottom -->
       <div class="operation-area">
         <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
-          :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
-          :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
-          :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
           :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
-          large-step-decrease-key="Alt + Shift + F" :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          large-step-decrease-key="Alt + Shift + F" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
         <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
           :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
-          large-step-decrease-key="Alt + Shift + G" :disabled="isSavingAll || isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)" @keydown="handleInputKeydown" />
+          large-step-decrease-key="Alt + Shift + G" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
         <button @click="apply" class="apply-button" title="Enter" style="display: none;"
-          :disabled="isApplyingAll || (isApplying && isCurrentImageAffected) || (isPreviewing && isCurrentImageAffected)">{{ $t('photoEdit.apply') }}</button>
+          :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
         <button @click="applyAll" class="apply-all-button" title="CTRL + Enter"
-          :disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll">{{ $t('photoEdit.applyAll') }}</button>
-        <SaveAllButton :is-disabled="isApplyingAll || isApplying || isPreviewing || isSavingAll" @click="saveAll" />
+          :disabled="isAllImagesAffected">{{ $t('photoEdit.applyAll') }}</button>
+        <SaveAllButton :is-disabled="isAllImagesAffected" @click="saveAll" />
       </div>
     </div>
   </div>
@@ -104,12 +103,7 @@ const route = useRoute()
 
 const images = ref([])
 const isLoading = ref(true)
-const isApplying = ref(false)
-const isApplyingAll = ref(false)
-const isPreviewing = ref(false)
-const isSavingAll = ref(false)
 const affectedImages = reactive(new Set())
-const previewingImages = reactive(new Set())
 const currentIndex = ref(0)
 const fullResImageUrl = ref('')
 const input1 = ref(0)
@@ -151,8 +145,11 @@ const currentRotateClockwise = computed(() => {
 
 const isCurrentImageAffected = computed(() => {
   if (!currentImage.value) return false
-  console.log("Checking if current image is affected:", currentImage.value.name, affectedImages)
   return affectedImages.has(currentImage.value.name)
+})
+
+const isAllImagesAffected = computed(() => {
+  return images.value.length > 0 && images.value.every(img => affectedImages.has(img.name))
 })
 
 const currentPageTitle = computed(() => {
@@ -223,8 +220,7 @@ const apply = () => {
     // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
     const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
 
-    // Set applying state to disable controls
-    isApplying.value = true
+    // Mark image as affected to disable controls
     affectedImages.add(imageName)
 
     // Send request to main process
@@ -255,7 +251,7 @@ const apply = () => {
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
         imageTimestamp.value = Date.now();
         loadFullResImage();
-        loadPresets(true);
+        loadPresets();
         affectedImages.delete(imageName);
 
         // 处理完自己的事情后，移除这个特定的监听器
@@ -270,8 +266,7 @@ const apply = () => {
       // error.outputFile 是完整路径，需要从中提取文件名
       const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
       if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
-        // Reset applying state to re-enable controls immediately on error
-        isApplying.value = false;
+        // Re-enable controls immediately on error
         affectedImages.delete(imageName);
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-error', handleError);
@@ -279,8 +274,7 @@ const apply = () => {
     };
     ipcRenderer.on('filmparam-apply-error', handleError);
   } catch (error) {
-    // Reset applying state to re-enable controls immediately on error
-    isApplying.value = false
+    // Re-enable controls immediately on error
     affectedImages.delete(imageName);
   }
 }
@@ -307,8 +301,8 @@ const applyPreview = () => {
     // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
     const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
 
-    // Add to previewing images
-    previewingImages.add(imageName)
+    // Mark image as affected to disable controls
+    affectedImages.add(imageName)
 
     // Send request to main process
     ipcRenderer.send('apply-filmparam', {
@@ -338,9 +332,8 @@ const applyPreview = () => {
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
         imageTimestamp.value = Date.now();
         loadFullResImage();
-        loadPresets(true);
-        isPreviewing.value = false;
-        previewingImages.delete(imageName);
+        loadPresets();
+        affectedImages.delete(imageName);
 
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
@@ -354,16 +347,14 @@ const applyPreview = () => {
       // error.outputFile 是完整路径，需要从中提取文件名
       const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
       if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
-        isPreviewing.value = false;
-        previewingImages.delete(imageName);
+        affectedImages.delete(imageName);
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-error', handleError);
       }
     };
     ipcRenderer.on('filmparam-apply-error', handleError);
   } catch (error) {
-    isPreviewing.value = false;
-    previewingImages.clear();
+    affectedImages.delete(imageName);
   }
 }
 
@@ -387,9 +378,7 @@ const applyAll = () => {
     // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast"
     const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value}`
 
-    // Set applying state to disable controls
-    isApplyingAll.value = true
-    isApplying.value = true
+    // Mark all images as affected to disable controls
     images.value.forEach(img => affectedImages.add(img.name))
 
     // Remove existing listeners to avoid duplicates
@@ -420,24 +409,19 @@ const applyAll = () => {
       // Update image timestamps to refresh display without reloading page
       imageTimestamp.value = Date.now()
       loadFullResImage()
-      // Reload presets and then enable controls
-      loadPresets(true)
-      isApplyingAll.value = false
+      // Reload presets and enable controls
+      loadPresets()
       affectedImages.clear()
     })
 
     ipcRenderer.once('filmparambatch-apply-error', (_, error) => {
       console.error('Error applying film parameters to all images:', error)
-      // Reset applying state to re-enable controls immediately on error
-      isApplying.value = false
-      isApplyingAll.value = false
+      // Re-enable controls immediately on error
       affectedImages.clear()
     })
   } catch (error) {
     console.error('Error applying film parameters to all images:', error)
-    // Reset applying state to re-enable controls immediately on error
-    isApplying.value = false
-    isApplyingAll.value = false
+    // Re-enable controls immediately on error
     affectedImages.clear()
   }
 }
@@ -459,8 +443,7 @@ const saveAll = () => {
   try {
     const ipcRenderer = window.require('electron').ipcRenderer
 
-    // Set saving all state to disable controls
-    isSavingAll.value = true
+    // Mark all images as affected to disable controls
     images.value.forEach(img => affectedImages.add(img.name))
 
     // Remove existing listeners to avoid duplicates
@@ -492,19 +475,16 @@ const saveAll = () => {
     // Handle success
     ipcRenderer.once('preset-to-batch-success', (_, result) => {
       console.log(result.message)
-      isSavingAll.value = false
       affectedImages.clear()
     })
 
     // Handle error
     ipcRenderer.once('preset-to-batch-error', (_, result) => {
       console.error('Error saving all files:', result.message, result.error)
-      isSavingAll.value = false
       affectedImages.clear()
     })
   } catch (error) {
     console.error('Error saving all files:', error)
-    isSavingAll.value = false
     affectedImages.clear()
   }
 }
@@ -558,7 +538,7 @@ const loadFullResImage = async () => {
 }
 
 const nextImage = () => {
-  if (isSavingAll.value) {
+  if (isAllImagesAffected.value) {
     return
   }
   if (currentIndex.value < images.value.length - 1) {
@@ -569,7 +549,7 @@ const nextImage = () => {
 }
 
 const previousImage = () => {
-  if (isSavingAll.value) {
+  if (isAllImagesAffected.value) {
     return
   }
   if (currentIndex.value > 0) {
@@ -609,7 +589,7 @@ function handleKeydown(event) {
     case 'ArrowDown':
       if (event.ctrlKey) {
         event.preventDefault()
-        if (!isSavingAll.value) {
+        if (!isAllImagesAffected.value) {
           nextImage()
         }
       }
@@ -617,7 +597,7 @@ function handleKeydown(event) {
     case 'ArrowUp':
       if (event.ctrlKey) {
         event.preventDefault()
-        if (!isSavingAll.value) {
+        if (!isAllImagesAffected.value) {
           previousImage()
         }
       }
@@ -665,7 +645,7 @@ const loadImages = async () => {
   }
 }
 
-const loadPresets = async (enableAfterLoad = false) => {
+const loadPresets = async () => {
   try {
     if (!workingDirectory.value || !window.require) {
       return
@@ -678,25 +658,13 @@ const loadPresets = async (enableAfterLoad = false) => {
     ipcRenderer.once('preset-json-loaded', (_, result) => {
       presetsData.value = result.presets
       loadPresetForCurrentImage()
-      // Enable controls if this was called after apply/applyAll
-      if (enableAfterLoad) {
-        isApplying.value = false
-      }
     })
 
     ipcRenderer.once('preset-json-error', (_, error) => {
       console.error('Error loading preset json:', error)
-      // Enable controls even if loading failed
-      if (enableAfterLoad) {
-        isApplying.value = false
-      }
     })
   } catch (error) {
     console.error('Error loading preset json:', error)
-    // Enable controls even if there was an exception
-    if (enableAfterLoad) {
-      isApplying.value = false
-    }
   }
 }
 
@@ -741,10 +709,8 @@ watch(currentIndex, () => {
   const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="${width}" height="${height}" fill="white"/></svg>`
   fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
 
-  // Reset presetLoaded state and previewing state when switching images
+  // Reset presetLoaded state when switching images
   presetLoaded.value = false
-  isPreviewing.value = false
-  previewingImages.clear()
 
   loadFullResImage()
   loadPresetForCurrentImage()
@@ -778,9 +744,6 @@ function handleInputKeydown(event) {
     return
   }
 
-  // Set previewing state immediately
-  isPreviewing.value = true
-
   // Apply debounced preview
   debouncedApplyPreview()
 }
@@ -789,9 +752,9 @@ function handleInputKeydown(event) {
 const inputsToWatch = [input1, input2, input3, input4, input5]
 inputsToWatch.forEach(input => {
   watch(input, () => {
-    // Only restart debounce if preset is loaded and previewing is already active
+    // Only restart debounce if preset is loaded and current image is affected
     // This ensures we don't start previewing automatically after mounted
-    if (!presetLoaded.value || !isPreviewing.value) {
+    if (!presetLoaded.value || !isCurrentImageAffected.value) {
       return
     }
 
@@ -1057,8 +1020,7 @@ onUnmounted(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.applying-badge,
-.previewing-badge {
+.applying-badge {
   position: absolute;
   bottom: 5%;
   right: 5%;
@@ -1071,10 +1033,6 @@ onUnmounted(() => {
   z-index: 10;
   animation: fadeIn 0.3s ease;
   pointer-events: none;
-}
-
-.previewing-badge {
-  background: rgba(66, 184, 131, 0.8);
 }
 
 .rotate-controls {
