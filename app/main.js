@@ -59,10 +59,15 @@ const RAW_EXTENSIONS = [
   '.raf'
 ]
 
-const TIFF_FORMATS = [
+const TIFF_EXTENSIONS = [
   '.tif',
   '.tiff'
 ]
+
+// Helper function to check file extension with case-insensitive matching
+const checkExtension = (extensions, ext) => {
+  return extensions.includes(ext.toLowerCase())
+}
 
 // Update checker constants
 const GITHUB_API_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/latest'
@@ -404,7 +409,7 @@ function createWindow() {
       // Filter for image files (including RAW files)
       const allImageFiles = files.filter(file => {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
+        return (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
       // Create temporary thumbnails directory using tmp
@@ -440,12 +445,12 @@ function createWindow() {
         }
 
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        const isRaw = RAW_EXTENSIONS.includes(ext)
+        const isRaw = checkExtension(RAW_EXTENSIONS, ext)
 
         let imageUrl = `file://${fullPath}?t=${timestamp}`
 
         // Generate thumbnail for tif/tiff files
-        if (TIFF_FORMATS.includes(ext)) {
+        if (checkExtension(TIFF_EXTENSIONS, ext)) {
           try {
             const thumbnailPath = path.join(tempDir, `${path.basename(file, ext)}.jpg`)
             await sharp(fullPath)
@@ -542,19 +547,19 @@ function createWindow() {
       const filesToProcess = files.filter(file => {
         if (file === '.preset.json') return true
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
+        return (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext)) && fs.statSync(path.join(directoryPath, file)).isFile()
       })
 
       // Separate RAW and non-RAW files
       const rawFiles = filesToProcess.filter(file => {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return RAW_EXTENSIONS.includes(ext)
+        return checkExtension(RAW_EXTENSIONS, ext)
       })
 
       const nonRawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !RAW_EXTENSIONS.includes(ext)
+        return !checkExtension(RAW_EXTENSIONS, ext)
       })
 
       // Function to check if image needs resize (long edge >= 800)
@@ -563,7 +568,7 @@ function createWindow() {
           const ext = path.extname(imagePath).toLowerCase()
 
           // For RAW files, assume they need resizing (camera RAW files are typically large)
-          if (RAW_EXTENSIONS.includes(ext)) {
+          if (checkExtension(RAW_EXTENSIONS, ext)) {
             return true
           }
 
@@ -693,20 +698,20 @@ function createWindow() {
         if (file === '.preset.json') return true
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
         const isFile = fs.statSync(path.join(directoryPath, file)).isFile()
-        return isFile && (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext))
+        return isFile && (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext))
       })
 
       // Separate RAW and non-RAW files
       const rawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return RAW_EXTENSIONS.includes(ext)
+        return checkExtension(RAW_EXTENSIONS, ext)
       })
 
       const nonRawFiles = filesToProcess.filter(file => {
         if (file === '.preset.json') return false
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return !RAW_EXTENSIONS.includes(ext)
+        return !checkExtension(RAW_EXTENSIONS, ext)
       })
 
       // Function to check if image needs resize (long edge >= 800)
@@ -715,7 +720,7 @@ function createWindow() {
           const ext = path.extname(imagePath).toLowerCase()
 
           // For RAW files, assume they need resizing (camera RAW files are typically large)
-          if (RAW_EXTENSIONS.includes(ext)) {
+          if (checkExtension(RAW_EXTENSIONS, ext)) {
             return true
           }
 
@@ -923,7 +928,7 @@ function createWindow() {
       let imageUrl = `file://${fullPath}`
 
       // Convert tif/tiff files to jpg for browser compatibility
-      if (TIFF_FORMATS.includes(ext)) {
+      if (checkExtension(TIFF_EXTENSIONS, ext)) {
         try {
           // Create temporary directory using tmp
           const tempDirObj = tmp.dirSync({ prefix: 'photo-gallery-full-res_', unsafeCleanup: true })
@@ -1155,7 +1160,7 @@ function createWindow() {
       // Get filename from input path
       const filename = path.basename(inputFilePath)
       const ext = path.extname(filename)
-      const isRaw = RAW_EXTENSIONS.includes(ext)
+      const isRaw = checkExtension(RAW_EXTENSIONS, ext)
 
       // Try to find preset for this file
       let presetKey = null
@@ -1256,7 +1261,7 @@ function createWindow() {
       const files = fs.readdirSync(inputDir)
       const imageFiles = files.filter(file => {
         const ext = file.toLowerCase().slice(file.lastIndexOf('.'))
-        return (IMAGE_EXTENSIONS.includes(ext) || RAW_EXTENSIONS.includes(ext)) && fs.statSync(path.join(inputDir, file)).isFile()
+        return (checkExtension(IMAGE_EXTENSIONS, ext) || checkExtension(RAW_EXTENSIONS, ext)) && fs.statSync(path.join(inputDir, file)).isFile()
       })
 
       // Process each file
@@ -1265,7 +1270,7 @@ function createWindow() {
 
       for (const file of imageFiles) {
         const ext = path.extname(file)
-        const isRaw = RAW_EXTENSIONS.includes(ext)
+        const isRaw = checkExtension(RAW_EXTENSIONS, ext)
 
         // Try to find preset for this file
         let presetKey = null
