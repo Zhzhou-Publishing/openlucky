@@ -308,6 +308,10 @@ function createWindow() {
     autoHideMenuBar: true,
     resizable: false,
     webPreferences: {
+      devTools: false, // 极限节省性能：禁用开发者工具，即便是开发环境也可禁用，仅在有必要时再开启
+      spellCheck: false, // 极限节省性能：关闭拼写检查
+      enableWebSQL: false, // 极限节省性能：关闭 WebSQL 支持
+      offscreen: false, // 极限节省性能：不使用离屏渲染，如果涉及 CSS/Canvas 绘制问题，可以考虑开启
       nodeIntegration: true,
       contextIsolation: false
     }
@@ -787,14 +791,14 @@ function createWindow() {
         const result = await needsResize(srcPath)
           ? await resizeImage(srcPath, destPath)
           : (() => {
-              try {
-                fs.copyFileSync(srcPath, destPath)
-                return { success: true }
-              } catch (err) {
-                console.error('Failed to copy non-RAW:', file, err.message)
-                return { success: false, error: err.message }
-              }
-            })()
+            try {
+              fs.copyFileSync(srcPath, destPath)
+              return { success: true }
+            } catch (err) {
+              console.error('Failed to copy non-RAW:', file, err.message)
+              return { success: false, error: err.message }
+            }
+          })()
 
         const count = await counter.increment()
         // Update window title with current file path and progress
@@ -1340,6 +1344,9 @@ function showUpdateDialog(win, updateInfo) {
     console.error('Error showing update dialog:', error)
   })
 }
+
+// 极限节省性能：禁用硬件加速，如果涉及到图像处理和显示，可能会有更好的兼容性
+app.disableHardwareAcceleration();
 
 // 当 Electron 完成初始化时被调用
 app.whenReady().then(async () => {
