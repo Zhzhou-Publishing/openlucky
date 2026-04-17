@@ -35,7 +35,7 @@
       <!-- Main Content Area - Right Side -->
       <div class="main-content">
         <!-- Large Image Display -->
-        <div class="image-display">
+        <div class="image-display" :style="{ height: imageDisplayHeight }">
           <div class="image-wrapper">
             <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
             <div v-if="isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
@@ -53,7 +53,7 @@
       </div>
 
       <!-- Operation Area - Fixed at Page Bottom -->
-      <div class="operation-area">
+      <div ref="operationAreaRef" class="operation-area">
         <Tabs
           :tabs="[
             { id: 'basic', label: '基础参数' },
@@ -144,6 +144,8 @@ const contrastR = ref(1.0)
 const contrastG = ref(1.0)
 const contrastB = ref(1.0)
 const presetsData = ref({})
+const operationAreaRef = ref(null)
+const operationAreaHeight = ref(80) // 默认值
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 const presetLoaded = ref(false)
 const rotateClockwiseMap = ref({}) // Store rotation for each image
@@ -191,8 +193,20 @@ const currentPageTitle = computed(() => {
   return 'Photo Edit'
 })
 
+const imageDisplayHeight = computed(() => {
+  return `calc(100vh - 64px - 80px - ${operationAreaHeight.value}px)`
+})
+
+const updateOperationAreaHeight = () => {
+  if (operationAreaRef.value) {
+    operationAreaHeight.value = operationAreaRef.value.offsetHeight
+  }
+}
+
 const handleTabChange = (tabId) => {
   console.log('Tab changed to:', tabId)
+  // 切换标签页后重新计算高度
+  setTimeout(updateOperationAreaHeight, 100)
 }
 
 const goBack = () => {
@@ -859,10 +873,15 @@ onMounted(() => {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', true)
   }
+
+  // 初始化操作区域高度
+  setTimeout(updateOperationAreaHeight, 100)
+  window.addEventListener('resize', updateOperationAreaHeight)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', updateOperationAreaHeight)
   if (window.require) {
     const ipcRenderer = window.require('electron').ipcRenderer
     ipcRenderer.send('set-window-resizable', false)
@@ -987,7 +1006,7 @@ onUnmounted(() => {
 /* Thumbnails Container - Left Side */
 .thumbnails-container {
   width: 100px;
-  height: calc(100vh - 64px - 70px);
+  height: calc(100vh - 64px - 80px);
   background: white;
   border-right: 1px solid #e0e0e0;
   overflow-y: scroll;
@@ -1090,7 +1109,6 @@ onUnmounted(() => {
   padding: 20px;
   overflow: hidden;
   width: 100%;
-  height: calc(100vh - 64px - 80px - 120px);
 }
 
 .image-wrapper {
@@ -1181,7 +1199,7 @@ onUnmounted(() => {
   bottom: 0;
   left: 100px;
   right: 0;
-  padding: 16px;
+  padding: 8px 16px;
   background: white;
   border-top: 1px solid #e0e0e0;
   z-index: 100;
@@ -1190,18 +1208,19 @@ onUnmounted(() => {
 
 .tab-content {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: center;
   align-items: center;
+  padding: 4px 8px;
 }
 
 .action-buttons {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   justify-content: center;
   align-items: center;
   width: 100%;
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .apply-button,

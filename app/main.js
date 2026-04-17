@@ -790,16 +790,17 @@ function createWindow() {
       }
 
       // Get CPU core count for concurrency setting
-      let limit = 1
+      let limitNum = 1
       try {
         let cpuCoreCount = os.cpus().length
-        limit = pLimit(Math.max(1, cpuCoreCount / 2 - 1))
+        limitNum = Math.max(1, cpuCoreCount / 2 - 1)
         console.log(`Detected CPU cores: ${cpuCoreCount}`)
-        console.log(`Setting concurrency limit to: ${limit} parallel processes`)
+        console.log(`Setting concurrency limit to: ${limitNum} parallel processes`)
       } catch (error) {
         console.warn('Failed to detect CPU core count, using default: 1', error.message)
       }
 
+      let limit = pLimit(limitNum)
 
       // Process non-RAW files using Promise with concurrency limit
       const nonRawProcessings = nonRawFiles.map(async (file) => {

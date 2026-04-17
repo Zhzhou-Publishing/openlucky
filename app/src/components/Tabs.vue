@@ -53,11 +53,11 @@ watch(() => props.defaultTab, (newDefault) => {
 .tabs-header {
   display: flex;
   border-bottom: 2px solid #e0e0e0;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .tab-button {
-  padding: 12px 24px;
+  padding: 8px 16px;
   border: none;
   background: transparent;
   font-size: 14px;
@@ -90,6 +90,6 @@ watch(() => props.defaultTab, (newDefault) => {
 }
 
 .tabs-content {
-  padding: 8px 0;
+  padding: 4px 0;
 }
 </style>
