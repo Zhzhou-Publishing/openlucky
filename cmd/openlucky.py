@@ -253,6 +253,9 @@ def main():
             preset_mask_b=preset['mask_b'],
             preset_mask_g=preset['mask_g'],
             preset_mask_r=preset['mask_r'],
+            preset_contrast_r=preset.get('contrast_r', 1.0),
+            preset_contrast_g=preset.get('contrast_g', 1.0),
+            preset_contrast_b=preset.get('contrast_b', 1.0),
             preset_gamma=preset.get('gamma', 1.0),
             preset_contrast=preset.get('contrast', 1.0),
             rotate_clockwise=args.rotate_clockwise,
@@ -364,6 +367,9 @@ def main():
                     preset_mask_b=preset['mask_b'],
                     preset_mask_g=preset['mask_g'],
                     preset_mask_r=preset['mask_r'],
+                    preset_contrast_r=preset.get('contrast_r', 1.0),
+                    preset_contrast_g=preset.get('contrast_g', 1.0),
+                    preset_contrast_b=preset.get('contrast_b', 1.0),
                     preset_gamma=preset.get('gamma', 1.0),
                     preset_contrast=preset.get('contrast', 1.0),
                     rotate_clockwise=args.rotate_clockwise
@@ -415,9 +421,14 @@ def main():
 
         try:
             params = args.param.split(',')
-            if len(params) != 5:
+            if len(params) < 5:
                 print(f"Error: Invalid parameter format. Expected 'mask_r,mask_g,mask_b,gamma,contrast', got: {args.param}")
                 sys.exit(1)
+            elif len(params) == 8:
+                # Support extended format with contrast_r, contrast_g, contrast_b
+                contrast_r = float(params[5])
+                contrast_g = float(params[6])
+                contrast_b = float(params[7])
             mask_r = float(params[0])
             mask_g = float(params[1])
             mask_b = float(params[2])
@@ -459,6 +470,9 @@ def main():
             preset_mask_r=mask_r,
             preset_mask_g=mask_g,
             preset_mask_b=mask_b,
+            preset_contrast_r=contrast_r,
+            preset_contrast_g=contrast_g,
+            preset_contrast_b=contrast_b,
             preset_gamma=gamma,
             preset_contrast=contrast,
             rotate_clockwise=args.rotate_clockwise,
@@ -569,6 +583,9 @@ def main():
                     preset_mask_b=mask_b,
                     preset_mask_g=mask_g,
                     preset_mask_r=mask_r,
+                    preset_contrast_r=contrast,
+                    preset_contrast_g=contrast,
+                    preset_contrast_b=contrast,
                     preset_gamma=gamma,
                     preset_contrast=contrast,
                     rotate_clockwise=args.rotate_clockwise
