@@ -791,14 +791,14 @@ function createWindow() {
 
       // Get CPU core count for concurrency setting
       let limitNum = 1
-      try {
-        let cpuCoreCount = os.cpus().length
-        limitNum = Math.max(1, cpuCoreCount / 2 - 1)
-        console.log(`Detected CPU cores: ${cpuCoreCount}`)
-        console.log(`Setting concurrency limit to: ${limitNum} parallel processes`)
-      } catch (error) {
-        console.warn('Failed to detect CPU core count, using default: 1', error.message)
-      }
+      // try {
+      //   let cpuCoreCount = os.cpus().length
+      //   limitNum = Math.max(1, cpuCoreCount / 2 - 1)
+      //   console.log(`Detected CPU cores: ${cpuCoreCount}`)
+      //   console.log(`Setting concurrency limit to: ${limitNum} parallel processes`)
+      // } catch (error) {
+      //   console.warn('Failed to detect CPU core count, using default: 1', error.message)
+      // }
 
       let limit = pLimit(limitNum)
 
