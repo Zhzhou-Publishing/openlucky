@@ -81,11 +81,11 @@
 
             <!-- Advanced Parameters Tab -->
             <div v-if="activeTab === 'advanced'" class="tab-content">
-              <NumberInput label="对比度 R" v-model="contrastR" :max="2" :min="0.5" increase-key="1" decrease-key="!"
+              <NumberInput label="对比度 R" v-model="contrastR" :max="2" :min="0.5"
                 :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-              <NumberInput label="对比度 G" v-model="contrastG" :max="2" :min="0.5" increase-key="2" decrease-key="@"
+              <NumberInput label="对比度 G" v-model="contrastG" :max="2" :min="0.5"
                 :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-              <NumberInput label="对比度 B" v-model="contrastB" :max="2" :min="0.5" increase-key="3" decrease-key="#"
+              <NumberInput label="对比度 B" v-model="contrastB" :max="2" :min="0.5"
                 :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
             </div>
 
