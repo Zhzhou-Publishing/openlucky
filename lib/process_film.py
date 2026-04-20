@@ -13,6 +13,9 @@ def process_film_bytestream_with_params(
     preset_mask_b,
     preset_gamma=1.0,
     preset_contrast=1.0,
+    preset_contrast_r=1.0,
+    preset_contrast_g=1.0,
+    preset_contrast_b=1.0,
     rotate_clockwise=0,
     is_raw=False,
 ):
@@ -87,12 +90,17 @@ def process_film_bytestream_with_params(
         img = np.power(img, preset_gamma)
 
     # 5. Auto levels and contrast fine-tuning
+    # Store per-channel contrast settings in a list for iteration
+    channel_contrasts = [preset_contrast_r, preset_contrast_g, preset_contrast_b]
+    
     for i in range(3):
         low = np.percentile(img[:, :, i], 0.5)
         high = np.percentile(img[:, :, i], 99.5)
+        # Apply combined contrast: global * channel_specific
+        combined_contrast = preset_contrast * channel_contrasts[i]
         # Linear stretch and apply contrast
         img[:, :, i] = np.clip(
-            (img[:, :, i] - low) * (1.0 / (high - low + 1e-5)) * preset_contrast, 0, 1.0
+            (img[:, :, i] - low) * (1.0 / (high - low + 1e-5)) * combined_contrast, 0, 1.0
         )
 
     # 6. Rotate image if needed (before encoding)
@@ -130,6 +138,9 @@ def process_film_with_params(
     preset_mask_b,
     preset_gamma=1.0,
     preset_contrast=1.0,
+    preset_contrast_r=1.0,
+    preset_contrast_g=1.0,
+    preset_contrast_b=1.0,
     rotate_clockwise=0,
 ):
     # 1. Read input file as byte stream
@@ -151,6 +162,9 @@ def process_film_with_params(
         preset_mask_b=preset_mask_b,
         preset_gamma=preset_gamma,
         preset_contrast=preset_contrast,
+        preset_contrast_r=preset_contrast_r,
+        preset_contrast_g=preset_contrast_g,
+        preset_contrast_b=preset_contrast_b,
         rotate_clockwise=rotate_clockwise,
         is_raw=ext in RAW_EXTENSIONS,
     )

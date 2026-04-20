@@ -5,6 +5,9 @@ presets:
     mask_r: 195
     mask_g: 140
     mask_b: 105
+    contrast_r: 1.0
+    contrast_g: 1.0
+    contrast_b: 1.0
     gamma: 2.2
     contrast: 1.2
 

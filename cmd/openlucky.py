@@ -10,6 +10,7 @@ from lib.process_film import process_film_with_params, process_film_bytestream_w
 from lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from lib.raw_to_tiff import raw_to_tiff
 from lib.tool.resize import resize_image
+from lib.tool.reshape import reshape_image, parse_point, parse_shape
 from lib.curve.levels import levels_clip
 from cmd.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
@@ -178,6 +179,16 @@ def main():
     resize_parser.add_argument('--value', '-v', required=True,
                                help='Resize value: ratio (0-1 float) or fixed-value (positive integer)')
 
+    # tool reshape subcommand
+    reshape_parser = tool_subparsers.add_parser('reshape', help='Four-point perspective correction')
+    reshape_parser.add_argument('--input', '-i', required=True, help='Input image file path')
+    reshape_parser.add_argument('--output', '-o', required=True, help='Output image file path')
+    reshape_parser.add_argument('--point1', '-p1', required=True, help='Top-left crop anchor point (x,y format, e.g., 10,13)')
+    reshape_parser.add_argument('--point2', '-p2', required=True, help='Top-right crop anchor point (x,y format, e.g., 100,14)')
+    reshape_parser.add_argument('--point3', '-p3', required=True, help='Bottom-right crop anchor point (x,y format, e.g., 101,134)')
+    reshape_parser.add_argument('--point4', '-p4', required=True, help='Bottom-left crop anchor point (x,y format, e.g., 8,132)')
+    reshape_parser.add_argument('--shape', '-s', required=True, help='Output canvas dimensions (width,height format, e.g., 6000,4000)')
+
     # curve subcommand
     curve_parser = subparsers.add_parser('curve', help='Curve adjustment tools')
     curve_subparsers = curve_parser.add_subparsers(dest='curve_command', help='Available curve subcommands')
@@ -253,6 +264,9 @@ def main():
             preset_mask_b=preset['mask_b'],
             preset_mask_g=preset['mask_g'],
             preset_mask_r=preset['mask_r'],
+            preset_contrast_r=preset.get('contrast_r', 1.0),
+            preset_contrast_g=preset.get('contrast_g', 1.0),
+            preset_contrast_b=preset.get('contrast_b', 1.0),
             preset_gamma=preset.get('gamma', 1.0),
             preset_contrast=preset.get('contrast', 1.0),
             rotate_clockwise=args.rotate_clockwise,
@@ -364,6 +378,9 @@ def main():
                     preset_mask_b=preset['mask_b'],
                     preset_mask_g=preset['mask_g'],
                     preset_mask_r=preset['mask_r'],
+                    preset_contrast_r=preset.get('contrast_r', 1.0),
+                    preset_contrast_g=preset.get('contrast_g', 1.0),
+                    preset_contrast_b=preset.get('contrast_b', 1.0),
                     preset_gamma=preset.get('gamma', 1.0),
                     preset_contrast=preset.get('contrast', 1.0),
                     rotate_clockwise=args.rotate_clockwise
@@ -415,9 +432,14 @@ def main():
 
         try:
             params = args.param.split(',')
-            if len(params) != 5:
+            if len(params) < 5:
                 print(f"Error: Invalid parameter format. Expected 'mask_r,mask_g,mask_b,gamma,contrast', got: {args.param}")
                 sys.exit(1)
+            elif len(params) == 8:
+                # Support extended format with contrast_r, contrast_g, contrast_b
+                contrast_r = float(params[5])
+                contrast_g = float(params[6])
+                contrast_b = float(params[7])
             mask_r = float(params[0])
             mask_g = float(params[1])
             mask_b = float(params[2])
@@ -459,6 +481,9 @@ def main():
             preset_mask_r=mask_r,
             preset_mask_g=mask_g,
             preset_mask_b=mask_b,
+            preset_contrast_r=contrast_r if contrast_r else 1,
+            preset_contrast_g=contrast_g if contrast_g else 1,
+            preset_contrast_b=contrast_b if contrast_b else 1,
             preset_gamma=gamma,
             preset_contrast=contrast,
             rotate_clockwise=args.rotate_clockwise,
@@ -489,6 +514,9 @@ def main():
             'mask_r': mask_r,
             'mask_g': mask_g,
             'mask_b': mask_b,
+            "contrast_r": contrast_r or 1,
+            "contrast_g": contrast_g or 1,
+            "contrast_b": contrast_b or 1,
             'gamma': gamma,
             'contrast': contrast,
             'rotate_clockwise': args.rotate_clockwise
@@ -569,6 +597,9 @@ def main():
                     preset_mask_b=mask_b,
                     preset_mask_g=mask_g,
                     preset_mask_r=mask_r,
+                    preset_contrast_r=contrast_r if preset_config.get('contrast_r') else 1,
+                    preset_contrast_g=contrast_g if preset_config.get('contrast_g') else 1,
+                    preset_contrast_b=contrast_b if preset_config.get('contrast_b') else 1,
                     preset_gamma=gamma,
                     preset_contrast=contrast,
                     rotate_clockwise=args.rotate_clockwise
@@ -679,6 +710,37 @@ def main():
                 edge=args.edge,
                 mode=args.mode,
                 value=value
+            )
+
+            if not success:
+                sys.exit(1)
+        elif args.tool_command == 'reshape':
+            # Parse points
+            try:
+                point1 = parse_point(args.point1, 'point1')
+                point2 = parse_point(args.point2, 'point2')
+                point3 = parse_point(args.point3, 'point3')
+                point4 = parse_point(args.point4, 'point4')
+            except ValueError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+
+            # Parse shape
+            try:
+                shape = parse_shape(args.shape)
+            except ValueError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+
+            # Perform reshape
+            success = reshape_image(
+                input_path=args.input,
+                output_path=args.output,
+                point1=point1,
+                point2=point2,
+                point3=point3,
+                point4=point4,
+                shape=shape
             )
 
             if not success:

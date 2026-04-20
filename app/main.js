@@ -790,18 +790,17 @@ function createWindow() {
       }
 
       // Get CPU core count for concurrency setting
-      let cpuCoreCount = 1
-      try {
-        const cpus = os.cpus()
-        cpuCoreCount = cpus.length
-        console.log(`Detected CPU cores: ${cpuCoreCount}`)
-        console.log(`Setting concurrency limit to: ${cpuCoreCount} parallel processes`)
-      } catch (error) {
-        console.warn('Failed to detect CPU core count, using default: 1', error.message)
-        cpuCoreCount = 1
-      }
+      let limitNum = 1
+      // try {
+      //   let cpuCoreCount = os.cpus().length
+      //   limitNum = Math.max(1, cpuCoreCount / 2 - 1)
+      //   console.log(`Detected CPU cores: ${cpuCoreCount}`)
+      //   console.log(`Setting concurrency limit to: ${limitNum} parallel processes`)
+      // } catch (error) {
+      //   console.warn('Failed to detect CPU core count, using default: 1', error.message)
+      // }
 
-      const limit = pLimit(Math.max(1, cpuCoreCount / 2 - 1))
+      let limit = pLimit(limitNum)
 
       // Process non-RAW files using Promise with concurrency limit
       const nonRawProcessings = nonRawFiles.map(async (file) => {
@@ -1301,11 +1300,13 @@ function createWindow() {
           }
         }
 
-        console.log("apply-preset-to-batch, presetKey:", presetKey)
         if (presetKey) {
           // Get preset parameters
           const presetParams = presetObj[presetKey]
-          const paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
+          let paramsString = `${presetParams.mask_r},${presetParams.mask_g},${presetParams.mask_b},${presetParams.gamma},${presetParams.contrast}`
+          if (presetParams.contrast_r !== undefined && presetParams.contrast_g !== undefined && presetParams.contrast_b !== undefined) {
+            paramsString += `,${presetParams.contrast_r},${presetParams.contrast_g},${presetParams.contrast_b}`
+          }
           const rotateClockwise = presetParams.rotate_clockwise || 0
 
           // Construct input and output paths
