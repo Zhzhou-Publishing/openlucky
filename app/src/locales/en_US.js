@@ -40,7 +40,12 @@ export default {
     gamma: 'Gamma',
     contrast: 'Contrast',
     apply: 'Apply',
-    applyAll: 'Apply All'
+    applyAll: 'Apply All',
+    basicTab: 'Basic Parameters',
+    advancedTab: 'Emulsion Concentration Correction',
+    contrastR: 'Contrast R',
+    contrastG: 'Contrast G',
+    contrastB: 'Contrast B'
   },
   bottomMenu: {
     preset: 'Preset:',
