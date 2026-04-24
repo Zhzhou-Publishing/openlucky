@@ -41,10 +41,12 @@
             <div v-if="isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
             <!-- Rotate buttons -->
             <div class="rotate-controls">
-              <button @click="rotateCounterClockwiseBtn" class="rotate-button rotate-counterclockwise-btn" :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate counter-clockwise">
+              <button @click="rotateCounterClockwiseBtn" class="rotate-button rotate-counterclockwise-btn"
+                :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate counter-clockwise">
                 ↺
               </button>
-              <button @click="rotateClockwiseBtn" class="rotate-button rotate-clockwise-btn" :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate clockwise">
+              <button @click="rotateClockwiseBtn" class="rotate-button rotate-clockwise-btn"
+                :disabled="isAllImagesAffected || isCurrentImageAffected" title="Rotate clockwise">
                 ↻
               </button>
             </div>
@@ -54,47 +56,48 @@
 
       <!-- Operation Area - Fixed at Page Bottom -->
       <div ref="operationAreaRef" class="operation-area">
-        <Tabs
-          :tabs="[
-            { id: 'basic', label: '基础参数' },
-            { id: 'advanced', label: '高级参数' }
-          ]"
-          :default-tab="'basic'"
-          @tab-change="handleTabChange"
-        >
+        <Tabs :tabs="[
+          { id: 'basic', label: $t('photoEdit.basicTab') },
+          { id: 'dye_concentration_correction', label: $t('photoEdit.advancedTab') }
+        ]" :default-tab="'basic'" @tab-change="handleTabChange">
           <template #default="{ activeTab }">
             <!-- Basic Parameters Tab -->
             <div v-if="activeTab === 'basic'" class="tab-content">
-              <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q" decrease-key="A"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-              <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W" decrease-key="S"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-              <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E" decrease-key="D"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-              <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R" decrease-key="F"
-                :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
-                large-step-decrease-key="Alt + Shift + F" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-              <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T" decrease-key="G"
-                :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
-                large-step-decrease-key="Alt + Shift + G" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q"
+                decrease-key="A" :disabled="isAllImagesAffected || isCurrentImageAffected"
+                @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W"
+                decrease-key="S" :disabled="isAllImagesAffected || isCurrentImageAffected"
+                @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E"
+                decrease-key="D" :disabled="isAllImagesAffected || isCurrentImageAffected"
+                @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R"
+                decrease-key="F" :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
+                large-step-decrease-key="Alt + Shift + F" :disabled="isAllImagesAffected || isCurrentImageAffected"
+                @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T"
+                decrease-key="G" :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
+                large-step-decrease-key="Alt + Shift + G" :disabled="isAllImagesAffected || isCurrentImageAffected"
+                @keydown="handleInputKeydown" />
             </div>
 
             <!-- Advanced Parameters Tab -->
-            <div v-if="activeTab === 'advanced'" class="tab-content">
-              <NumberInput label="对比度 R" v-model="contrastR" :max="2" :min="0.5"
-                :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-              <NumberInput label="对比度 G" v-model="contrastG" :max="2" :min="0.5"
-                :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
-              <NumberInput label="对比度 B" v-model="contrastB" :max="2" :min="0.5"
-                :step-value="0.01" :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+            <div v-if="activeTab === 'dye_concentration_correction'" class="tab-content">
+              <NumberInput :label="$t('photoEdit.contrastR')" v-model="contrastR" :max="2" :min="0.5" :step-value="0.01"
+                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.contrastG')" v-model="contrastG" :max="2" :min="0.5" :step-value="0.01"
+                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+              <NumberInput :label="$t('photoEdit.contrastB')" v-model="contrastB" :max="2" :min="0.5" :step-value="0.01"
+                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
             </div>
 
             <!-- Common Action Buttons -->
             <div class="action-buttons">
               <button @click="apply" class="apply-button" title="Enter" style="display: none;"
                 :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
-              <button @click="applyAll" class="apply-all-button" title="CTRL + Enter"
-                :disabled="isAllImagesAffected">{{ $t('photoEdit.applyAll') }}</button>
+              <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isAllImagesAffected">{{
+                $t('photoEdit.applyAll') }}</button>
               <SaveAllButton :is-disabled="isAllImagesAffected" @click="saveAll" />
             </div>
           </template>
@@ -118,7 +121,7 @@ const path = window.require ? window.require('path') : { basename: (p) => p }
 // Debounce utility function
 function debounce(fn, delay) {
   let timer = null
-  return function(...args) {
+  return function (...args) {
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
       fn.apply(this, args)

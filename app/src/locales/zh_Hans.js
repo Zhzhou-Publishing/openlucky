@@ -40,7 +40,12 @@ export default {
     gamma: 'Gamma',
     contrast: '对比度',
     apply: '应用',
-    applyAll: '全部应用'
+    applyAll: '全部应用',
+    basicTab: '基础参数',
+    advancedTab: '乳剂浓度校正',
+    contrastR: '对比度 R',
+    contrastG: '对比度 G',
+    contrastB: '对比度 B'
   },
   bottomMenu: {
     preset: '预设:',
