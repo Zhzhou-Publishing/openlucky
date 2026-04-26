@@ -41,7 +41,7 @@
   },
   "build": {
     "appId": "com.github.zhzhou-publishing.openlucky",
-    "productName": "OpenLucky",
+    "productName": "OpenLuckyApp",
     "directories": {
       "output": "dist-electron"
     },
