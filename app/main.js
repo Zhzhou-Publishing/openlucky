@@ -74,6 +74,9 @@ const checkExtension = (extensions, ext) => {
 const GITHUB_API_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/latest'
 const STORAGE_FILE_NAME = 'lastUpdateCheck.txt'
 
+// Global variable to track if current version is recalled
+let recalled = false
+
 // Get system locale for i18n
 function getSystemLocale() {
   const locale = app.getLocale() || 'en'
@@ -193,13 +196,83 @@ function saveCheckTime() {
 }
 
 /**
+ * Get recall status from storage file
+ * Returns { recalled: boolean, version: string } or { recalled: false }
+ */
+function getRecallStatus() {
+  try {
+    const filePath = getStorageFilePath()
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8').trim()
+      console.log('[RecallStatus] Read from storage:', data)
+
+      // Check if data starts with 'recall:'
+      if (data.startsWith('recall:')) {
+        const recalledVersion = data.substring(7) // Remove 'recall:' prefix
+        console.log('[RecallStatus] Found recall marker for version:', recalledVersion)
+
+        const currentVersion = getCurrentVersion()
+        console.log('[RecallStatus] Current version:', currentVersion)
+
+        // Check if the recalled version matches current version
+        if (recalledVersion === currentVersion) {
+          console.log('[RecallStatus] Current version matches recalled version')
+          return { recalled: true, version: recalledVersion }
+        } else {
+          console.log('[RecallStatus] Current version does not match recalled version, ignoring recall')
+          return { recalled: false }
+        }
+      } else {
+        console.log('[RecallStatus] No recall marker found, data is timestamp')
+        return { recalled: false }
+      }
+    }
+    console.log('[RecallStatus] Storage file does not exist')
+    return { recalled: false }
+  } catch (e) {
+    console.error('Error reading recall status:', e)
+    return { recalled: false }
+  }
+}
+
+/**
+ * Save recall status to file
+ */
+function saveRecallStatus(version) {
+  try {
+    const filePath = getStorageFilePath()
+    const userDataDir = app.getPath('userData')
+
+    // Ensure userData directory exists
+    if (!fs.existsSync(userDataDir)) {
+      fs.mkdirSync(userDataDir, { recursive: true })
+    }
+
+    const recallData = `recall:${version}`
+    fs.writeFileSync(filePath, recallData, 'utf-8')
+    console.log('[RecallStatus] Saved recall status:', recallData)
+  } catch (e) {
+    console.error('Failed to save recall status:', e)
+  }
+}
+
+/**
  * Check if we should check for updates based on hour interval
- * Returns true if we should check (either first time or new hour interval)
+ * Returns { shouldCheck: boolean, recallStatus: { recalled: boolean, version?: string } }
  */
 function shouldCheckForUpdates() {
+  // First, check if there's a recall status in the file
+  const recallStatus = getRecallStatus()
+  if (recallStatus.recalled) {
+    console.log('[UpdateChecker] Found recall status for current version, should check')
+    return { shouldCheck: true, recallStatus }
+  }
+
+  // If no recall status, check timestamp as before
   const lastCheck = getLastCheckTime()
   if (lastCheck === 0) {
-    return true // Never checked before
+    console.log('[UpdateChecker] Never checked before, should check')
+    return { shouldCheck: true, recallStatus }
   }
 
   const now = Date.now()
@@ -207,7 +280,9 @@ function shouldCheckForUpdates() {
   const currentHour = Math.floor(now / (60 * 60 * 1000))
 
   // Check if we're in a new hour interval
-  return currentHour > lastCheckHour
+  const shouldCheck = currentHour > lastCheckHour
+  console.log('[UpdateChecker] Hour interval check:', shouldCheck ? 'should check' : 'skip')
+  return { shouldCheck, recallStatus }
 }
 
 /**
@@ -332,25 +407,38 @@ function fetchLatestRelease() {
  */
 async function checkForUpdates() {
   try {
-    if (!shouldCheckForUpdates()) {
+    const { shouldCheck, recallStatus } = shouldCheckForUpdates()
+
+    if (!shouldCheck) {
       console.log('[UpdateChecker] Already checked this hour, skipping')
       return { skipped: true }
     }
 
-    // First, check if current version is recalled
+    // First, check if there's a recall status from file
+    if (recallStatus.recalled) {
+      console.log('[UpdateChecker] Found recall status from file for current version, returning recall result')
+      recalled = true
+      return recallStatus
+    }
+
+    // Second, check if current version is recalled via GitHub API
     console.log('[UpdateChecker] Step 1: Checking if current version is recalled...')
     const recallResult = await checkVersionRecalled()
 
     if (recallResult === null) {
       console.error('[UpdateChecker] Version recall check failed, proceeding with update check')
     } else if (recallResult.recalled) {
-      console.log('[UpdateChecker] Version is recalled, returning recall result')
+      console.log('[UpdateChecker] Version is recalled, saving recall status and returning')
+      // Save recall status to file
+      saveRecallStatus(recallResult.version)
+      // Set global recalled variable
+      recalled = true
       return recallResult
     } else {
       console.log('[UpdateChecker] Version is not recalled, proceeding with update check')
     }
 
-    // Now check for updates
+    // Third, check for updates
     console.log('[UpdateChecker] Step 2: Checking for updates...')
     const release = await fetchLatestRelease()
 
@@ -365,8 +453,10 @@ async function checkForUpdates() {
     console.log('[UpdateChecker] Current version:', currentVersion)
     console.log('[UpdateChecker] Latest version:', release.name)
 
-    // Save check time after successful API call
-    saveCheckTime()
+    // Save check time after successful API call (only if not recalled)
+    if (!recalled) {
+      saveCheckTime()
+    }
 
     // Compare versions
     if (release.name !== currentVersion) {
