@@ -535,9 +535,17 @@ def main():
         # Parse parameters
         try:
             params = args.param.split(',')
-            if len(params) != 5:
+            contrast_r = 1
+            contrast_g = 1
+            contrast_b = 1
+            if len(params) < 5:
                 print(f"Error: Invalid parameter format. Expected 'mask_r,mask_g,mask_b,gamma,contrast', got: {args.param}")
                 sys.exit(1)
+            elif len(params) == 8:
+                # Support extended format with contrast_r, contrast_g, contrast_b
+                contrast_r = float(params[5])
+                contrast_g = float(params[6])
+                contrast_b = float(params[7])
             mask_r = float(params[0])
             mask_g = float(params[1])
             mask_b = float(params[2])
