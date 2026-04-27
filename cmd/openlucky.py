@@ -432,6 +432,9 @@ def main():
 
         try:
             params = args.param.split(',')
+            contrast_r = 1
+            contrast_g = 1
+            contrast_b = 1
             if len(params) < 5:
                 print(f"Error: Invalid parameter format. Expected 'mask_r,mask_g,mask_b,gamma,contrast', got: {args.param}")
                 sys.exit(1)
@@ -481,9 +484,9 @@ def main():
             preset_mask_r=mask_r,
             preset_mask_g=mask_g,
             preset_mask_b=mask_b,
-            preset_contrast_r=contrast_r if contrast_r else 1,
-            preset_contrast_g=contrast_g if contrast_g else 1,
-            preset_contrast_b=contrast_b if contrast_b else 1,
+            preset_contrast_r=contrast_r,
+            preset_contrast_g=contrast_g,
+            preset_contrast_b=contrast_b,
             preset_gamma=gamma,
             preset_contrast=contrast,
             rotate_clockwise=args.rotate_clockwise,
@@ -514,9 +517,9 @@ def main():
             'mask_r': mask_r,
             'mask_g': mask_g,
             'mask_b': mask_b,
-            "contrast_r": contrast_r or 1,
-            "contrast_g": contrast_g or 1,
-            "contrast_b": contrast_b or 1,
+            "contrast_r": contrast_r,
+            "contrast_g": contrast_g,
+            "contrast_b": contrast_b,
             'gamma': gamma,
             'contrast': contrast,
             'rotate_clockwise': args.rotate_clockwise
@@ -577,6 +580,9 @@ def main():
             'mask_r': mask_r,
             'mask_g': mask_g,
             'mask_b': mask_b,
+            "contrast_r": contrast_r,
+            "contrast_g": contrast_g,
+            "contrast_b": contrast_b,
             'gamma': gamma,
             'contrast': contrast,
             'rotate_clockwise': args.rotate_clockwise
@@ -597,9 +603,9 @@ def main():
                     preset_mask_b=mask_b,
                     preset_mask_g=mask_g,
                     preset_mask_r=mask_r,
-                    preset_contrast_r=contrast_r if preset_config.get('contrast_r') else 1,
-                    preset_contrast_g=contrast_g if preset_config.get('contrast_g') else 1,
-                    preset_contrast_b=contrast_b if preset_config.get('contrast_b') else 1,
+                    preset_contrast_r=contrast_r,
+                    preset_contrast_g=contrast_g,
+                    preset_contrast_b=contrast_b,
                     preset_gamma=gamma,
                     preset_contrast=contrast,
                     rotate_clockwise=args.rotate_clockwise
