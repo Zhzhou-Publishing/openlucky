@@ -1,7 +1,8 @@
 export default {
   navbar: {
     home: 'Home',
-    about: 'About'
+    about: 'About',
+    leaveConfirm: 'Leaving this page will discard the images you have loaded. Continue?'
   },
   photoDirectory: {
     title: 'Select Photo Directory',
@@ -60,11 +61,20 @@ export default {
     version: 'Version Information',
     description: 'Description',
     descriptionText: 'OpenLucky Desktop is a powerful desktop application for film processing and batch operations. Built with Electron and Vue 3, it provides a modern and efficient user interface for managing your workflow.',
-    technologies: 'Technologies'
+    homepage: 'Homepage',
+    license: 'License',
+    licenseSummary: 'Permits commercial use, modification, distribution, and private use; requires preserving the copyright notice and stating any significant changes; does not grant trademark rights and provides no warranty.',
+    language: 'Language'
   },
   languageSwitcher: {
     label: 'Language',
     zh_Hans: '简体中文',
-    en_US: 'English (United States)'
+    zh_Hant: '繁體中文',
+    en_US: 'English (United States)',
+    fr_FR: 'Français',
+    ru_RU: 'Русский',
+    es_ES: 'Español',
+    pt_PT: 'Português',
+    ja_JP: '日本語'
   }
 }

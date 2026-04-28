@@ -1,9 +1,14 @@
 <template>
   <div class="language-switcher">
-    <label class="language-label">{{ $t('languageSwitcher.label') }}:</label>
     <select v-model="currentLocale" class="language-select" @change="changeLanguage">
       <option value="zh_Hans">{{ $t('languageSwitcher.zh_Hans') }}</option>
+      <option value="zh_Hant">{{ $t('languageSwitcher.zh_Hant') }}</option>
       <option value="en_US">{{ $t('languageSwitcher.en_US') }}</option>
+      <option value="fr_FR">{{ $t('languageSwitcher.fr_FR') }}</option>
+      <option value="ru_RU">{{ $t('languageSwitcher.ru_RU') }}</option>
+      <option value="es_ES">{{ $t('languageSwitcher.es_ES') }}</option>
+      <option value="pt_PT">{{ $t('languageSwitcher.pt_PT') }}</option>
+      <option value="ja_JP">{{ $t('languageSwitcher.ja_JP') }}</option>
     </select>
   </div>
 </template>
@@ -13,7 +18,7 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { locale } = useI18n()
-const currentLocale = ref(localStorage.getItem('locale') || 'zh_Hans')
+const currentLocale = ref(locale.value)
 
 const changeLanguage = () => {
   locale.value = currentLocale.value
@@ -30,13 +35,6 @@ watch(locale, (newLocale) => {
 .language-switcher {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.language-label {
-  font-size: 14px;
-  color: #666;
-  font-weight: 500;
 }
 
 .language-select {

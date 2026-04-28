@@ -1,7 +1,8 @@
 export default {
   navbar: {
     home: '首页',
-    about: '关于'
+    about: '关于',
+    leaveConfirm: '离开当前页面将丢失已加载的图片，确定继续吗？'
   },
   photoDirectory: {
     title: '选择照片目录',
@@ -60,11 +61,20 @@ export default {
     version: '版本信息',
     description: '描述',
     descriptionText: 'OpenLucky 桌面版是一个用于胶片处理和批量操作的强大桌面应用程序。基于 Electron 和 Vue 3 构建，它为管理工作流程提供了现代高效的界面。',
-    technologies: '技术栈'
+    homepage: '项目首页',
+    license: '开源协议',
+    licenseSummary: '允许商业使用、修改、分发与私人使用；需保留版权声明并标明重大改动；不授予商标权，亦不提供任何担保。',
+    language: '语言 Language'
   },
   languageSwitcher: {
-    label: '语言',
+    label: '语言 Language',
     zh_Hans: '简体中文',
-    en_US: 'English (United States)'
+    zh_Hant: '繁體中文',
+    en_US: 'English (United States)',
+    fr_FR: 'Français',
+    ru_RU: 'Русский',
+    es_ES: 'Español',
+    pt_PT: 'Português',
+    ja_JP: '日本語'
   }
 }

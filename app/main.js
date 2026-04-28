@@ -618,6 +618,12 @@ function createWindow() {
     }
   })
 
+  ipcMain.on('open-external', (_, url) => {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+      shell.openExternal(url)
+    }
+  })
+
   // Handle get-images request
   ipcMain.on('get-images', async (_, directoryPath) => {
     try {
