@@ -374,14 +374,40 @@ const getImageUrlWithTimestamp = (image) => {
 }
 
 // Helper function to update image timestamp and trigger reactivity
-const updateImageTimestamp = (imageName) => {
+// After apply succeeds, the on-disk thumbnail/output for `imageName`
+// has changed. Ask main to rebuild the entry (so image.url points at
+// fresh content + bumps the timestamp) and patch our images array in
+// place. Both the thumbnail strip and the main pic re-render together.
+const refreshImage = (imageName) => {
   const imageIndex = images.value.findIndex(img => img.name === imageName)
-  if (imageIndex !== -1) {
-    // Update the specific image's timestamp
-    images.value[imageIndex].timestamp = Date.now()
-    // Trigger Vue's reactivity system
+  if (imageIndex === -1 || !window.require) return
+  const ipcRenderer = window.require('electron').ipcRenderer
+
+  const onRefreshed = (_, result) => {
+    if (result.filename !== imageName) return
+    cleanup()
+    const idx = images.value.findIndex(img => img.name === imageName)
+    if (idx === -1) return
+    const ts = Date.now()
+    images.value[idx] = { ...images.value[idx], ...result.entry, timestamp: ts }
     triggerImagesReactivity()
   }
+  const onError = (_, result) => {
+    if (result.filename !== imageName) return
+    cleanup()
+    console.error('Error refreshing image:', result.error)
+  }
+  const cleanup = () => {
+    ipcRenderer.removeListener('image-refreshed', onRefreshed)
+    ipcRenderer.removeListener('image-refresh-error', onError)
+  }
+
+  ipcRenderer.on('image-refreshed', onRefreshed)
+  ipcRenderer.on('image-refresh-error', onError)
+  ipcRenderer.send('refresh-image', {
+    directoryPath: workingDirectory.value,
+    filename: imageName
+  })
 }
 
 const apply = () => {
@@ -435,7 +461,7 @@ const apply = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        updateImageTimestamp(imageName);
+        refreshImage(imageName);
         loadFullResImage();
         loadPresets();
         affectedImages.delete(imageName);
@@ -516,7 +542,7 @@ const applyPreview = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        updateImageTimestamp(imageName);
+        refreshImage(imageName);
         loadFullResImage();
         loadPresets();
         affectedImages.delete(imageName);
@@ -706,8 +732,13 @@ const loadFullResImage = async () => {
         filename: currentImage.value.name
       })
 
+      // Reuse the per-image timestamp so the main pic's cache-buster is
+      // identical to the thumbnail's. After apply, refreshImage rebuilds
+      // image.url and bumps timestamp; both views flip together.
+      const ts = currentImage.value.timestamp || Date.now()
+
       ipcRenderer.once('full-res-image-loaded', (_, result) => {
-        fullResImageUrl.value = result.url + '?t=' + Date.now()
+        fullResImageUrl.value = result.url + '?t=' + ts
       })
 
       ipcRenderer.once('full-res-image-error', (_, error) => {
@@ -723,7 +754,7 @@ const loadFullResImage = async () => {
           </svg>`
           fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
         } else {
-          fullResImageUrl.value = currentImage.value.url + '?t=' + Date.now()
+          fullResImageUrl.value = getImageUrlWithTimestamp(currentImage.value)
         }
       })
     } catch (error) {
@@ -731,7 +762,7 @@ const loadFullResImage = async () => {
       fullResImageUrl.value = currentImage.value.url
     }
   } else {
-    fullResImageUrl.value = currentImage.value.url + '?t=' + Date.now()
+    fullResImageUrl.value = getImageUrlWithTimestamp(currentImage.value)
   }
 }
 
