@@ -45,6 +45,7 @@
       :is-applying-preset="isApplyingPreset"
       :is-saving-all="isSavingAll"
       :images-count="images.length"
+      :has-unapplied-images="hasUnappliedImages"
       @update:selected-preset="selectedPreset = $event"
       @apply="applyPreset"
       @save-all="saveAll"
@@ -90,6 +91,29 @@ const workingDirectory = ref('')
 const outputDirectory = ref('')
 const originalDirectoryPath = ref('')
 const originalWindowTitle = ref('OpenLucky Desktop App')
+const presetsData = ref({})
+const presetsDataLoaded = ref(false)
+
+// Block SaveAll until every image has an entry in .preset.json. Until we
+// finish reading the file we keep SaveAll disabled to be safe.
+const hasUnappliedImages = computed(() => {
+  if (!images.value.length) return false
+  if (!presetsDataLoaded.value) return true
+  return images.value.some(img => !presetsData.value[img.name])
+})
+
+const loadPresetJson = () => {
+  if (!workingDirectory.value || !window.require) return
+  const ipcRenderer = window.require('electron').ipcRenderer
+  ipcRenderer.send('read-preset-json', workingDirectory.value)
+  ipcRenderer.once('preset-json-loaded', (_, result) => {
+    presetsData.value = result.presets || {}
+    presetsDataLoaded.value = true
+  })
+  ipcRenderer.once('preset-json-error', () => {
+    presetsDataLoaded.value = true
+  })
+}
 
 const directoryPath = computed(() => route.query.workingDirectory || route.query.path || '')
 
@@ -239,6 +263,7 @@ const loadImages = async () => {
       ipcRenderer.once('images-loaded', (_, result) => {
         images.value = result.images
         isLoading.value = false
+        loadPresetJson()
       })
 
       ipcRenderer.once('images-error', (_, error) => {
@@ -269,6 +294,10 @@ watch(globalPresets, (list) => {
 }, { immediate: true })
 
 const saveAll = () => {
+  if (hasUnappliedImages.value) {
+    console.warn('SaveAll blocked: there are still images without applied parameters')
+    return
+  }
   if (!workingDirectory.value || !originalDirectoryPath.value) {
     console.error('No working directory or original directory')
     return

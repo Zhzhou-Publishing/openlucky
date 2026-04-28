@@ -68,7 +68,8 @@ export default {
     applying: '应用中...'
   },
   saveAllButton: {
-    saveAll: '全部保存'
+    saveAll: '全部保存',
+    unappliedTooltip: '尚有未套用参数的图片'
   },
   about: {
     title: '关于 OpenLucky 桌面版',

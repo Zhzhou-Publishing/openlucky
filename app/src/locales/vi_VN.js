@@ -68,7 +68,8 @@ export default {
     applying: 'Đang áp dụng...'
   },
   saveAllButton: {
-    saveAll: 'Lưu tất cả'
+    saveAll: 'Lưu tất cả',
+    unappliedTooltip: 'Một số ảnh chưa được áp dụng tham số'
   },
   about: {
     title: 'Giới thiệu OpenLucky Desktop',

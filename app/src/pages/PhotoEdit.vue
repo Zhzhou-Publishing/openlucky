@@ -87,7 +87,7 @@
                 :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
               <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isAllImagesAffected">{{
                 $t('photoEdit.applyAll') }}</button>
-              <SaveAllButton :is-disabled="isAllImagesAffected" @click="saveAll" />
+              <SaveAllButton :is-disabled="isAllImagesAffected || hasUnappliedImages" :has-unapplied-images="hasUnappliedImages" @click="saveAll" />
             </div>
           </template>
         </Tabs>
@@ -155,6 +155,7 @@ const contrastR = ref(1.0)
 const contrastG = ref(1.0)
 const contrastB = ref(1.0)
 const presetsData = ref({})
+const presetsDataLoaded = ref(false)
 const operationAreaRef = ref(null)
 const operationAreaHeight = ref(80) // 默认值
 
@@ -274,6 +275,13 @@ const isCurrentImageAffected = computed(() => {
 
 const isAllImagesAffected = computed(() => {
   return images.value.length > 0 && images.value.every(img => affectedImages.has(img.name))
+})
+
+// Images whose parameters are not yet recorded in .preset.json. Once even
+// one image is unapplied, SaveAll is blocked.
+const hasUnappliedImages = computed(() => {
+  if (!images.value.length || !presetsDataLoaded.value) return false
+  return images.value.some(img => !presetsData.value || !presetsData.value[img.name])
 })
 
 const currentPageTitle = computed(() => {
@@ -608,6 +616,10 @@ const applyAll = () => {
 }
 
 const saveAll = () => {
+  if (hasUnappliedImages.value) {
+    console.warn('SaveAll blocked: there are still images without applied parameters')
+    return
+  }
   if (!workingDirectory.value || !originalDirectory.value) {
     console.error('No working directory or original directory')
     return
@@ -844,12 +856,14 @@ const loadPresets = async () => {
     ipcRenderer.send('read-preset-json', workingDirectory.value)
 
     ipcRenderer.once('preset-json-loaded', (_, result) => {
-      presetsData.value = result.presets
+      presetsData.value = result.presets || {}
+      presetsDataLoaded.value = true
       loadPresetForCurrentImage()
     })
 
     ipcRenderer.once('preset-json-error', (_, error) => {
       console.error('Error loading preset json:', error)
+      presetsDataLoaded.value = true
     })
   } catch (error) {
     console.error('Error loading preset json:', error)
@@ -883,6 +897,13 @@ const loadPresetForCurrentImage = () => {
     contrastG.value = 1.0
     contrastB.value = 1.0
     rotateClockwiseMap.value[currentFileName.value] = 0
+
+    // Auto-prompt the apply-preset modal once we know .preset.json was
+    // actually read (so we don't flash it during initial mount races) and
+    // there's at least one preset to choose from.
+    if (presetsDataLoaded.value && globalPresets.value.length > 0 && !presetModalOpen.value) {
+      openPresetModal()
+    }
   }
 
   // Set presetLoaded to true after loading presets, enabling preview debounce

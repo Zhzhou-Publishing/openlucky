@@ -68,7 +68,8 @@ export default {
     applying: 'लागू किया जा रहा है...'
   },
   saveAllButton: {
-    saveAll: 'सभी सहेजें'
+    saveAll: 'सभी सहेजें',
+    unappliedTooltip: 'कुछ चित्रों पर पैरामीटर अभी तक लागू नहीं किए गए हैं'
   },
   about: {
     title: 'OpenLucky Desktop के बारे में',

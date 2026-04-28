@@ -68,7 +68,8 @@ export default {
     applying: '적용(適用) 중...'
   },
   saveAllButton: {
-    saveAll: '모두 저장(貯藏)'
+    saveAll: '모두 저장(貯藏)',
+    unappliedTooltip: '매개변수(媒介變數)가 적용(適用)되지 않은 사진이 있습니다'
   },
   about: {
     title: 'OpenLucky Desktop 정보(情報)',

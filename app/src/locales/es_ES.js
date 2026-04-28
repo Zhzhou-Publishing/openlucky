@@ -68,7 +68,8 @@ export default {
     applying: 'Aplicando...'
   },
   saveAllButton: {
-    saveAll: 'Guardar todo'
+    saveAll: 'Guardar todo',
+    unappliedTooltip: 'Algunas imágenes aún no tienen parámetros aplicados'
   },
   about: {
     title: 'Acerca de OpenLucky Desktop',

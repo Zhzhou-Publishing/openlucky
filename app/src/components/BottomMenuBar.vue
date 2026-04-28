@@ -22,11 +22,11 @@
       <button
         @click="handleSaveAll"
         class="save-all-button"
-        :disabled="isSavingAll"
-        title="Ctrl + S"
+        :disabled="isSavingAll || hasUnappliedImages"
+        :title="saveAllTitle"
       >
         {{ $t('saveAllButton.saveAll') }}
-        <span v-if="!isSaveAllClicked" class="red-dot"></span>
+        <span v-if="!isSaveAllClicked && !isSavingAll && !hasUnappliedImages" class="red-dot"></span>
       </button>
     </div>
   </div>
@@ -64,6 +64,10 @@ const props = defineProps({
   imagesCount: {
     type: Number,
     default: 0
+  },
+  hasUnappliedImages: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -81,6 +85,11 @@ const applyButtonText = computed(() => {
 })
 
 const isSaveAllClicked = computed(() => globalState.isSaveAllClicked)
+
+const saveAllTitle = computed(() => {
+  if (props.hasUnappliedImages) return t('saveAllButton.unappliedTooltip')
+  return 'Ctrl + S'
+})
 
 const handleApplyPreset = () => {
   emit('apply')

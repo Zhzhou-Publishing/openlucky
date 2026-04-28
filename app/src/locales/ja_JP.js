@@ -68,7 +68,8 @@ export default {
     applying: '適用中...'
   },
   saveAllButton: {
-    saveAll: 'すべて保存'
+    saveAll: 'すべて保存',
+    unappliedTooltip: 'パラメータが適用されていない画像があります'
   },
   about: {
     title: 'OpenLucky Desktop について',

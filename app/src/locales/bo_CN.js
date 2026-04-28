@@ -68,7 +68,8 @@ export default {
     applying: 'སྦྱོར་བཞིན་པ...'
   },
   saveAllButton: {
-    saveAll: 'ཡོད་ཚད་ཉར།'
+    saveAll: 'ཡོད་ཚད་ཉར།',
+    unappliedTooltip: 'པར་འགའ་ལ་ཚད་གཞི་མ་སྦྱོར་བ་ཡོད།'
   },
   about: {
     title: 'OpenLucky Desktop སྐོར།',
