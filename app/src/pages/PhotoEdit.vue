@@ -208,9 +208,10 @@ const updateOperationAreaHeight = () => {
 
 const handleTabChange = (tabId) => {
   console.log('Tab changed to:', tabId)
-  // 切换标签页后重新计算高度
-  setTimeout(updateOperationAreaHeight, 100)
+  // 高度变化由 ResizeObserver 自动捕获，这里无需手动触发
 }
+
+let operationAreaResizeObserver = null
 
 const goBack = () => {
   router.push({
@@ -868,19 +869,37 @@ inputsToWatch.forEach(input => {
   })
 })
 
+// 操作面板挂在 v-else 分支里，初次 onMounted 时 ref 还是 null。
+// 用 watch 跟踪 ref 的挂载时机，一出现就接上 ResizeObserver，
+// 之后元素重挂载也会自动重建。
+watch(operationAreaRef, (el) => {
+  if (operationAreaResizeObserver) {
+    operationAreaResizeObserver.disconnect()
+    operationAreaResizeObserver = null
+  }
+  if (el && typeof ResizeObserver !== 'undefined') {
+    operationAreaResizeObserver = new ResizeObserver(updateOperationAreaHeight)
+    operationAreaResizeObserver.observe(el)
+  }
+})
+
 onMounted(() => {
   loadImages()
   loadPresets()
   window.addEventListener('keydown', handleKeydown)
-
-  // 初始化操作区域高度
-  setTimeout(updateOperationAreaHeight, 100)
-  window.addEventListener('resize', updateOperationAreaHeight)
+  // ResizeObserver 不可用的兜底：监听窗口尺寸变化。
+  if (typeof ResizeObserver === 'undefined') {
+    window.addEventListener('resize', updateOperationAreaHeight)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('resize', updateOperationAreaHeight)
+  if (operationAreaResizeObserver) {
+    operationAreaResizeObserver.disconnect()
+    operationAreaResizeObserver = null
+  }
 })
 </script>
 
