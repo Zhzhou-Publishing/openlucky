@@ -35,7 +35,7 @@
       <!-- Main Content Area - Right Side -->
       <div class="main-content">
         <!-- Large Image Display -->
-        <div class="image-display" :style="{ height: imageDisplayHeight }">
+        <div class="image-display" :style="{ height: imageDisplayHeight }" @contextmenu.prevent="onContextMenu">
           <div class="image-wrapper">
             <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
             <div v-if="isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
@@ -104,6 +104,8 @@
         </Tabs>
       </div>
     </div>
+
+    <ContextMenu v-model="ctxMenuVisible" :items="ctxMenuItems" :position="ctxMenuPos" />
   </div>
 </template>
 
@@ -113,6 +115,7 @@ import { useRouter, useRoute } from 'vue-router'
 import NumberInput from '../components/NumberInput.vue'
 import SaveAllButton from '../components/SaveAllButton.vue'
 import Tabs from '../components/Tabs.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 import { setSaveAllClicked, getSaveAllClicked } from '../utils/globalState'
 
 // Get path module for Electron environment
@@ -149,6 +152,59 @@ const contrastB = ref(1.0)
 const presetsData = ref({})
 const operationAreaRef = ref(null)
 const operationAreaHeight = ref(80) // 默认值
+
+// 右键菜单
+const ctxMenuVisible = ref(false)
+const ctxMenuPos = ref({ x: 0, y: 0 })
+const paramClipboard = ref(null)
+
+function copyParams() {
+  paramClipboard.value = {
+    mask_r: input1.value,
+    mask_g: input2.value,
+    mask_b: input3.value,
+    gamma: input4.value,
+    contrast: input5.value,
+    contrast_r: contrastR.value,
+    contrast_g: contrastG.value,
+    contrast_b: contrastB.value
+  }
+}
+
+function pasteParams() {
+  const c = paramClipboard.value
+  if (!c) return
+  input1.value = c.mask_r
+  input2.value = c.mask_g
+  input3.value = c.mask_b
+  input4.value = c.gamma
+  input5.value = c.contrast
+  contrastR.value = c.contrast_r
+  contrastG.value = c.contrast_g
+  contrastB.value = c.contrast_b
+}
+
+const ctxMenuItems = computed(() => {
+  const busy = isAllImagesAffected.value || isCurrentImageAffected.value
+  return [
+    { label: '复制参数', action: copyParams, disabled: busy },
+    { label: '粘贴参数', action: pasteParams, disabled: busy || !paramClipboard.value },
+    { type: 'separator' },
+    {
+      label: '旋转',
+      children: [
+        { label: '顺时针 90°', action: () => console.log('[ctx] rotate cw') },
+        { label: '逆时针 90°', action: () => console.log('[ctx] rotate ccw') },
+        { label: '180°', action: () => console.log('[ctx] rotate 180') }
+      ]
+    }
+  ]
+})
+
+function onContextMenu(e) {
+  ctxMenuPos.value = { x: e.clientX, y: e.clientY }
+  ctxMenuVisible.value = true
+}
 const previousImageDimensions = ref({ width: 6000, height: 4000 })
 const presetLoaded = ref(false)
 const rotateClockwiseMap = ref({}) // Store rotation for each image
