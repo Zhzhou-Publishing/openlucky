@@ -120,8 +120,20 @@ async function buildThumbnailEntry(directoryPath, filename, presets, tempDir, ti
 }
 
 // Update checker constants
-const GITHUB_API_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases/latest'
+const GITHUB_RELEASES_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases?per_page=30'
 const STORAGE_FILE_NAME = 'lastUpdateCheck.txt'
+
+// Tumbleweed channels: a release only nudges users on the same channel.
+// 'stable' (no suffix) → next stable
+// 'rc' / 'beta' / 'alpha' → next release in the same channel
+function getVersionChannel(version) {
+  if (!version) return 'stable'
+  const v = String(version).toLowerCase()
+  if (/-rc/i.test(v)) return 'rc'
+  if (/-beta/i.test(v)) return 'beta'
+  if (/-alpha/i.test(v)) return 'alpha'
+  return 'stable'
+}
 
 // Global variable to track if current version is recalled
 let recalled = false
@@ -401,21 +413,23 @@ async function checkVersionRecalled() {
 }
 
 /**
- * Fetch latest release info from GitHub API
+ * Fetch the most recent GitHub release whose version suffix matches the
+ * given channel. Returns the release object or null if no match found.
+ * GitHub's /releases endpoint lists releases newest-first, so the first
+ * channel match is the latest.
  */
-function fetchLatestRelease() {
+function fetchLatestReleaseForChannel(channel) {
   return new Promise((resolve, reject) => {
     const options = {
       headers: {
         'User-Agent': 'openlucky-desktop-updater'
       },
-      timeout: 10000 // 10 秒超时
+      timeout: 10000
     }
 
-    const req = https.get(GITHUB_API_URL, options, (res) => {
+    const req = https.get(GITHUB_RELEASES_URL, options, (res) => {
       let data = ''
 
-      // 检查 HTTP 状态码
       if (res.statusCode !== 200) {
         reject(new Error(`GitHub API returned status code: ${res.statusCode}`))
         return
@@ -427,8 +441,16 @@ function fetchLatestRelease() {
 
       res.on('end', () => {
         try {
-          const release = JSON.parse(data)
-          resolve(release)
+          const releases = JSON.parse(data)
+          if (!Array.isArray(releases)) {
+            reject(new Error('GitHub API did not return a release list'))
+            return
+          }
+          const match = releases.find(r =>
+            r && !r.draft && r.name &&
+            getVersionChannel(r.tag_name || r.name) === channel
+          )
+          resolve(match || null)
         } catch (e) {
           reject(new Error('Failed to parse GitHub API response'))
         }
@@ -489,18 +511,18 @@ async function checkForUpdates() {
 
     // Third, check for updates
     console.log('[UpdateChecker] Step 2: Checking for updates...')
-    const release = await fetchLatestRelease()
+    const currentVersion = getCurrentVersion()
+    const currentChannel = getVersionChannel(currentVersion)
+    console.log('[UpdateChecker] Current version:', currentVersion, 'channel:', currentChannel)
+
+    const release = await fetchLatestReleaseForChannel(currentChannel)
 
     if (!release || !release.name) {
-      console.error('[UpdateChecker] Invalid release data')
-      return null
+      console.log('[UpdateChecker] No matching release in channel:', currentChannel)
+      return { hasUpdate: false }
     }
 
-    // Get current version from package.json
-    const currentVersion = getCurrentVersion()
-
-    console.log('[UpdateChecker] Current version:', currentVersion)
-    console.log('[UpdateChecker] Latest version:', release.name)
+    console.log('[UpdateChecker] Latest version in channel:', release.name)
 
     // Save check time after successful API call (only if not recalled)
     if (!recalled) {
@@ -1561,7 +1583,8 @@ app.whenReady().then(async () => {
   if (updateInfo && updateInfo.recalled) {
     console.log('[App] Version is recalled, fetching latest release info...')
     try {
-      const latestRelease = await fetchLatestRelease()
+      const currentChannel = getVersionChannel(getCurrentVersion())
+      const latestRelease = await fetchLatestReleaseForChannel(currentChannel)
       if (latestRelease && latestRelease.name && latestRelease.html_url) {
         const win = BrowserWindow.getAllWindows()[0]
         if (win && !win.isDestroyed()) {
