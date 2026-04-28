@@ -132,9 +132,9 @@ const isLoading = ref(true)
 const affectedImages = reactive(new Set())
 const currentIndex = ref(0)
 const fullResImageUrl = ref('')
-const input1 = ref(1)
-const input2 = ref(1)
-const input3 = ref(1)
+const input1 = ref(255)
+const input2 = ref(255)
+const input3 = ref(255)
 const input4 = ref(1)
 const input5 = ref(1)
 const contrastR = ref(1.0)
@@ -822,9 +822,9 @@ const loadPresetForCurrentImage = () => {
 
   const preset = presetsData.value[currentFileName.value]
   if (preset) {
-    input1.value = preset.mask_r ?? 1
-    input2.value = preset.mask_g ?? 1
-    input3.value = preset.mask_b ?? 1
+    input1.value = preset.mask_r ?? 255
+    input2.value = preset.mask_g ?? 255
+    input3.value = preset.mask_b ?? 255
     input4.value = preset.gamma ?? 1
     input5.value = preset.contrast ?? 1
     contrastR.value = preset.contrast_r ?? 1.0
@@ -833,9 +833,9 @@ const loadPresetForCurrentImage = () => {
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
   } else {
     // Reset to default if no preset found
-    input1.value = 1
-    input2.value = 1
-    input3.value = 1
+    input1.value = 255
+    input2.value = 255
+    input3.value = 255
     input4.value = 1
     input5.value = 1
     contrastR.value = 1.0
