@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: 'プリセットを選択',
       save: '適用',
-      cancel: 'キャンセル'
+      pickColor: 'マスクの色を取得'
     }
   },
   bottomMenu: {

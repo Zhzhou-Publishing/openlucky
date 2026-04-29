@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: 'Выберите пресет',
       save: 'Применить',
-      cancel: 'Отмена'
+      pickColor: 'Взять цвет маски'
     }
   },
   bottomMenu: {

@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: 'Chọn preset',
       save: 'Áp dụng',
-      cancel: 'Hủy'
+      pickColor: 'Lấy màu mặt nạ'
     }
   },
   bottomMenu: {

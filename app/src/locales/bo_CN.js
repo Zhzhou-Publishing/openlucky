@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: 'སྔོན་སྒྲིག་འདེམས།',
       save: 'སྦྱོར།',
-      cancel: 'མེད་པ།'
+      pickColor: 'གདོས་མཐོང་གི་ཁ་དོག་ལེན།'
     }
   },
   bottomMenu: {

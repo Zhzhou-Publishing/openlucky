@@ -101,8 +101,9 @@
       v-model="presetModalOpen"
       :title="$t('photoEdit.applyPresetModal.title')"
       :save-label="$t('photoEdit.applyPresetModal.save')"
-      :cancel-label="$t('photoEdit.applyPresetModal.cancel')"
+      :cancel-label="$t('photoEdit.applyPresetModal.pickColor')"
       @save="applyPresetFromModal"
+      @cancel="onPresetModalCancel"
     >
       <select v-model="selectedModalPreset" class="preset-modal-select">
         <option v-for="p in globalPresets" :key="p.value" :value="p.value">{{ p.label }}</option>
@@ -254,6 +255,10 @@ function openPresetModal() {
     if (!stillExists) selectedModalPreset.value = globalPresets.value[0].value
   }
   presetModalOpen.value = true
+}
+
+function onPresetModalCancel(source) {
+  if (source === 'button') startEyedropper()
 }
 
 function applyPresetFromModal() {

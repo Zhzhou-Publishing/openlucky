@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: 'प्रीसेट चुनें',
       save: 'लागू करें',
-      cancel: 'रद्द करें'
+      pickColor: 'मास्क रंग चुनें'
     }
   },
   bottomMenu: {

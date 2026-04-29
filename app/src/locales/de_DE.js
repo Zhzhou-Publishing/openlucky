@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: 'Voreinstellung auswählen',
       save: 'Anwenden',
-      cancel: 'Abbrechen'
+      pickColor: 'Maskenfarbe aufnehmen'
     }
   },
   bottomMenu: {

@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: 'Wybierz preset',
       save: 'Zastosuj',
-      cancel: 'Anuluj'
+      pickColor: 'Pobierz kolor maski'
     }
   },
   bottomMenu: {

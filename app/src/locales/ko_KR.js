@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: '프리셋 선택(選擇)',
       save: '적용(適用)',
-      cancel: '취소(取消)'
+      pickColor: '마스크 색상(色相) 추출(抽出)'
     }
   },
   bottomMenu: {

@@ -63,7 +63,7 @@ export default {
     applyPresetModal: {
       title: '選擇預設',
       save: '套用',
-      cancel: '取消'
+      pickColor: '吸管色罩'
     }
   },
   bottomMenu: {
