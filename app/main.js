@@ -799,7 +799,7 @@ function createWindow() {
 
       // 设置并发限制：根据 CPU 核心数，留一个核心防止界面卡顿
       // 统一所有图片的并发控制，防止非 RAW 文件过多时造成系统压力
-      const concurrencyLimit = Math.max(1, os.cpus().length - 1)
+      const concurrencyLimit = Math.max(1, Math.floor(os.cpus().length / 2))
       const limit = pLimit(concurrencyLimit)
 
       // Read files in the source directory
@@ -870,10 +870,19 @@ function createWindow() {
         })
       }
 
-      // Process all images (both RAW and non-RAW) using pLimit to control concurrency
+      // Process all images (both RAW and non-RAW) using pLimit to control concurrency.
+      // 进度计数：每张图轮到处理时计数器自增并广播，UI 显示 [n/total] 路径。
+      // 并发下次序与输入顺序未必一致，但计数单调递增，UI 看起来仍然连续。
+      const totalImages = imageFiles.length
+      let startedCount = 0
       const imageProcessings = imageFiles.map(file => limit(async () => {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
+
+        startedCount += 1
+        const progress = `[${startedCount}/${totalImages}] ${srcPath}`
+        event.sender.send('processing-progress-update', { progress })
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${progress}` })
 
         if (await needsResize(srcPath)) {
           // Resize image to 800px long edge
@@ -913,9 +922,13 @@ function createWindow() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
+      event.sender.send('processing-progress-clear', {})
+      event.sender.send('window-title-restore', {})
       event.sender.send('working-directory-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {
       console.error('Error preparing working directory:', error)
+      event.sender.send('processing-progress-clear', {})
+      event.sender.send('window-title-restore', {})
       event.sender.send('working-directory-error', { error: error.message })
     }
   })
@@ -928,7 +941,7 @@ function createWindow() {
       const workingDirectory = workingDirObj.name
 
       // 设置并发限制：根据 CPU 核心数，留一个核心防止界面卡顿
-      const concurrencyLimit = Math.max(1, os.cpus().length - 1)
+      const concurrencyLimit = Math.max(1, Math.floor(os.cpus().length / 2))
       const limit = pLimit(concurrencyLimit)
 
       // Read files in the source directory
@@ -997,10 +1010,18 @@ function createWindow() {
         })
       }
 
-      // Process all images using pLimit for concurrency control
+      // Process all images using pLimit for concurrency control.
+      // 进度计数：每张图轮到处理时计数器自增并广播，UI 显示 [n/total] 路径。
+      const totalImages = imageFiles.length
+      let startedCount = 0
       const imageProcessings = imageFiles.map(file => limit(async () => {
         const srcPath = path.join(directoryPath, file)
         const destPath = path.join(workingDirectory, file)
+
+        startedCount += 1
+        const progress = `[${startedCount}/${totalImages}] ${srcPath}`
+        event.sender.send('processing-progress-update', { progress })
+        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${progress}` })
 
         if (await needsResize(srcPath)) {
           const result = await resizeImage(srcPath, destPath)
@@ -1038,9 +1059,13 @@ function createWindow() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
+      event.sender.send('processing-progress-clear', {})
+      event.sender.send('window-title-restore', {})
       event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
     } catch (error) {
       console.error('Error preparing working directory:', error)
+      event.sender.send('processing-progress-clear', {})
+      event.sender.send('window-title-restore', {})
       event.sender.send('working-directory-from-selected-error', { error: error.message })
     }
   })
