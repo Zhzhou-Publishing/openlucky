@@ -5,6 +5,68 @@ import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
 
+import matplotlib.pyplot as plt
+
+
+def get_white_point_manual(img, roi=None, percentile=99.0, debug=True):
+    """
+    手动设置 ROI 进行白点采样。
+
+    :param img: 输入图像 (H, W, 3), float32
+    :param roi: 坐标元组 (x1, y1, x2, y2)
+                x1, y1: 左上角坐标
+                x2, y2: 右下角坐标
+                如果为 None，则使用全图
+    """
+    h, w = img.shape[:2]
+
+    # 1. 区域判断与切片
+    if roi is not None:
+        x1, y1, x2, y2 = roi
+
+        # 基础边界保护：防止坐标越界
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w, x2), min(h, y2)
+
+        # 执行切片
+        target_area = img[y1:y2, x1:x2]
+
+        # 检查切片是否有效
+        if target_area.size == 0:
+            print("Error: Invalid ROI, falling back to full image.")
+            target_area = img
+    else:
+        target_area = img
+
+    # 2. 调试可视化：让你确认切到的区域对不对
+    if debug:
+        plt.figure(figsize=(8, 4))
+        plt.title("Manual ROI Verification (Red Box)")
+        # 简单显示区域，如果 roi 不为空，画一个框表示范围
+        plt.imshow(img)
+        if roi is not None:
+            plt.gca().add_patch(
+                plt.Rectangle(
+                    (x1, y1),
+                    x2 - x1,
+                    y2 - y1,
+                    linewidth=2,
+                    edgecolor="r",
+                    facecolor="none",
+                )
+            )
+        plt.show()
+
+    # 3. 计算白点
+    # 将二维区域展平为像素列表
+    pixels = target_area.reshape(-1, 3)
+
+    r_w = np.percentile(pixels[:, 0], percentile)
+    g_w = np.percentile(pixels[:, 1], percentile)
+    b_w = np.percentile(pixels[:, 2], percentile)
+
+    return np.array([r_w, g_w, b_w])
+
 
 def process_film_bytestream_with_params(
     input_bytes,
@@ -17,6 +79,10 @@ def process_film_bytestream_with_params(
     preset_contrast_g=1.0,
     preset_contrast_b=1.0,
     rotate_clockwise=0,
+    wp_roi_x1=None,
+    wp_roi_y1=None,
+    wp_roi_x2=None,
+    wp_roi_y2=None,
     is_raw=False,
 ):
     """
@@ -78,10 +144,30 @@ def process_film_bytestream_with_params(
     img[:, :, 0] /= preset_mask_r / 255.0  # Red
     img[:, :, 1] /= preset_mask_g / 255.0  # Green
     img[:, :, 2] /= preset_mask_b / 255.0  # Blue
-    img = np.clip(img, 0, 1.0)
 
     # 3. Color inversion (in 0-1 space, it's 1.0 - img)
     img = 1.0 - img
+
+    # 3.1. 计算白点向量 (r_w, g_w, b_w)
+    # 使用你之前建立的强力采样函数
+    white_point_vec = get_white_point_manual(img, percentile=99.0)
+    print(f"Debug: Detected white point vector: {white_point_vec}")
+
+    # 3.2. 核心修改：只取三个通道中的最大值作为唯一的缩放因子
+    # 这样可以确保任何通道都不会溢出 1.0 (因为除以了最大值)
+    # 且保留了原始的 RGB 比例关系
+    scaling_factor = np.max(white_point_vec)
+
+    # 安全防护：防止除以 0
+    scaling_factor = max(scaling_factor, 0.01)
+
+    # 3.3. 应用归一化
+    # img 的每个像素同时除以这个因子，RGB 的比例 (128:64:32) 变为 (255:128:64)
+    img /= scaling_factor
+
+    # 3.4. 截断 (Clip)
+    # 此时 R 刚好等于 1.0 (255)，其余通道均在 0-1 之间，色彩没有改变
+    img = np.clip(img, 0, 1.0)
 
     # 4. Gamma correction
     # For linear RAW, input around 0.45 is recommended; for gamma-corrected images, around 1.0 for fine-tuning
@@ -92,7 +178,7 @@ def process_film_bytestream_with_params(
     # 5. Auto levels and contrast fine-tuning
     # Store per-channel contrast settings in a list for iteration
     channel_contrasts = [preset_contrast_r, preset_contrast_g, preset_contrast_b]
-    
+
     for i in range(3):
         low = np.percentile(img[:, :, i], 0.5)
         high = np.percentile(img[:, :, i], 99.5)
@@ -100,7 +186,9 @@ def process_film_bytestream_with_params(
         combined_contrast = preset_contrast * channel_contrasts[i]
         # Linear stretch and apply contrast
         img[:, :, i] = np.clip(
-            (img[:, :, i] - low) * (1.0 / (high - low + 1e-5)) * combined_contrast, 0, 1.0
+            (img[:, :, i] - low) * (1.0 / (high - low + 1e-5)) * combined_contrast,
+            0,
+            1.0,
         )
 
     # 6. Rotate image if needed (before encoding)
@@ -142,6 +230,10 @@ def process_film_with_params(
     preset_contrast_g=1.0,
     preset_contrast_b=1.0,
     rotate_clockwise=0,
+    wp_roi_x1=None,
+    wp_roi_y1=None,
+    wp_roi_x2=None,
+    wp_roi_y2=None,
 ):
     # 1. Read input file as byte stream
     try:
@@ -167,6 +259,10 @@ def process_film_with_params(
         preset_contrast_b=preset_contrast_b,
         rotate_clockwise=rotate_clockwise,
         is_raw=ext in RAW_EXTENSIONS,
+        wp_roi_x1=wp_roi_x1,
+        wp_roi_y1=wp_roi_y1,
+        wp_roi_x2=wp_roi_x2,
+        wp_roi_y2=wp_roi_y2,
     )
 
     # 3. Write output byte stream to file

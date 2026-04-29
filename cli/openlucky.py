@@ -71,6 +71,33 @@ def get_preset_config(config_path, preset_name="kodak_ultramax_400"):
         return
 
 
+def parse_area(s):
+    """Parse '--area' argument 'x1,y1,x2,y2' into a 4-int tuple.
+
+    Strictly requires x2 > x1 and y2 > y1 (degenerate or inverted boxes
+    are rejected up-front so we don't push garbage into the white-point
+    sampler downstream). Raises ValueError on any malformed input.
+    """
+    if s is None:
+        return None
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 4:
+        raise ValueError(
+            f"Invalid --area format. Expected 'x1,y1,x2,y2', got: {s!r}"
+        )
+    try:
+        x1, y1, x2, y2 = (int(p) for p in parts)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --area values. All four coordinates must be integers, got: {s!r}"
+        )
+    if x2 <= x1 or y2 <= y1:
+        raise ValueError(
+            f"Invalid --area: must satisfy x2>x1 and y2>y1, got x1={x1}, y1={y1}, x2={x2}, y2={y2}"
+        )
+    return (x1, y1, x2, y2)
+
+
 def find_config_file():
     """
     Search for configuration file, try in the following order:
@@ -116,6 +143,8 @@ def main():
                              help='Preset name to use (default: kodak_ultramax_400)')
     film_parser.add_argument('--rotate-clockwise', '-r', type=int, choices=[0, 90, 180, 270], default=0,
                              help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
+    film_parser.add_argument('--area', '-a', required=False, default=None,
+                             help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -126,6 +155,8 @@ def main():
                                    help='Preset name to use (default: kodak_ultramax_400)')
     filmbatch_parser.add_argument('--rotate-clockwise', '-r', type=int, choices=[0, 90, 180, 270], default=0,
                                    help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
+    filmbatch_parser.add_argument('--area', '-a', required=False, default=None,
+                                   help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -135,6 +166,8 @@ def main():
                                    help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
     filmparam_parser.add_argument('--rotate-clockwise', '-t', type=int, choices=[0, 90, 180, 270], default=0,
                                    help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
+    filmparam_parser.add_argument('--area', '-a', required=False, default=None,
+                                   help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -144,6 +177,8 @@ def main():
                                          help='Apply parameters in format "mask_r,mask_g,mask_b,gamma,contrast", e.g., "110,220,210,1.1,1.5"')
     filmparambatch_parser.add_argument('--rotate-clockwise', '-t', type=int, choices=[0, 90, 180, 270], default=0,
                                          help='Rotate image clockwise by degrees (0, 90, 180, or 270, default: 0)')
+    filmparambatch_parser.add_argument('--area', '-a', required=False, default=None,
+                                         help='White-point sampling area in pixels, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to sample the full image.')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -238,6 +273,13 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'film':
+        # Validate optional ROI early so we fail before doing any I/O.
+        try:
+            roi = parse_area(args.area)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         # Read input from file or stdin
         if args.input is not None:
             input_file = Path(args.input)
@@ -297,6 +339,10 @@ def main():
             preset_gamma=preset.get('gamma', 1.0),
             preset_contrast=preset.get('contrast', 1.0),
             rotate_clockwise=args.rotate_clockwise,
+            wp_roi_x1=roi[0] if roi else None,
+            wp_roi_y1=roi[1] if roi else None,
+            wp_roi_x2=roi[2] if roi else None,
+            wp_roi_y2=roi[3] if roi else None,
             is_raw=is_raw
         )
 
@@ -333,6 +379,13 @@ def main():
                     save_preset_to_json(Path(args.input) if args.input else None, output_path_for_preset, preset_config, args.preset, preset_config.get('label'))
 
     elif args.command == 'filmbatch':
+        # Validate optional ROI early so we fail before walking the directory.
+        try:
+            roi = parse_area(args.area)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         input_dir = Path(args.input)
         output_dir = Path(args.output) if args.output else input_dir / 'output'
 
@@ -410,7 +463,11 @@ def main():
                     preset_contrast_b=preset.get('contrast_b', 1.0),
                     preset_gamma=preset.get('gamma', 1.0),
                     preset_contrast=preset.get('contrast', 1.0),
-                    rotate_clockwise=args.rotate_clockwise
+                    rotate_clockwise=args.rotate_clockwise,
+                    wp_roi_x1=roi[0] if roi else None,
+                    wp_roi_y1=roi[1] if roi else None,
+                    wp_roi_x2=roi[2] if roi else None,
+                    wp_roi_y2=roi[3] if roi else None,
                 )
 
 
@@ -452,6 +509,13 @@ def main():
             print(f"Saved {len(presets)} preset(s) to {preset_file}")
 
     elif args.command == 'filmparam':
+        # Validate optional ROI early so we fail before doing any I/O.
+        try:
+            roi = parse_area(args.area)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         # Parse parameters
         if args.param is None:
             print("Error: --param is required for filmparam command")
@@ -517,6 +581,10 @@ def main():
             preset_gamma=gamma,
             preset_contrast=contrast,
             rotate_clockwise=args.rotate_clockwise,
+            wp_roi_x1=roi[0] if roi else None,
+            wp_roi_y1=roi[1] if roi else None,
+            wp_roi_x2=roi[2] if roi else None,
+            wp_roi_y2=roi[3] if roi else None,
             is_raw=is_raw
         )
 
@@ -556,6 +624,13 @@ def main():
         save_preset_to_json(input_path_for_preset, output_path_for_preset, preset_config, preset_name, preset_label)
 
     elif args.command == 'filmparambatch':
+        # Validate optional ROI early so we fail before walking the directory.
+        try:
+            roi = parse_area(args.area)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
         input_dir = Path(args.input)
         output_dir = Path(args.output) if args.output else input_dir / 'output'
 
@@ -643,7 +718,11 @@ def main():
                     preset_contrast_b=contrast_b,
                     preset_gamma=gamma,
                     preset_contrast=contrast,
-                    rotate_clockwise=args.rotate_clockwise
+                    rotate_clockwise=args.rotate_clockwise,
+                    wp_roi_x1=roi[0] if roi else None,
+                    wp_roi_y1=roi[1] if roi else None,
+                    wp_roi_x2=roi[2] if roi else None,
+                    wp_roi_y2=roi[3] if roi else None,
                 )
                 success_count += 1
 
