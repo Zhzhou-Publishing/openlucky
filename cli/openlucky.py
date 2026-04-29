@@ -11,6 +11,7 @@ from cli.lib.tiff_to_jpeg import convert_tiff_to_jpeg
 from cli.lib.raw_to_tiff import raw_to_tiff
 from cli.lib.tool.resize import resize_image
 from cli.lib.tool.reshape import reshape_image, parse_point, parse_shape
+from cli.lib.tool.histogram import compute_histogram
 from cli.lib.curve.levels import levels_clip
 from cli.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
@@ -178,6 +179,22 @@ def main():
                                help='Resize mode: ratio (0-1) or fixed-value (positive integer) (default: fixed-value)')
     resize_parser.add_argument('--value', '-v', required=True,
                                help='Resize value: ratio (0-1 float) or fixed-value (positive integer)')
+
+    # tool histogram subcommand
+    histogram_parser = tool_subparsers.add_parser('histogram', help='Compute image histogram (JSON output to stdout)')
+    histogram_parser.add_argument('--input', '-i', required=True, help='Input image file path')
+    histogram_parser.add_argument('--type', '-t', default='rgbl',
+                                  choices=['rgbl'],
+                                  help='Histogram type. rgbl = R/G/B/luminance (BT.601). Default: rgbl')
+    histogram_parser.add_argument('--gamma', '-g', type=float, default=1.0,
+                                  help='Gamma applied before histogramming (default: 1.0; suggest 2.2 for RAW)')
+    histogram_parser.add_argument('--mode', '-m', default='log',
+                                  choices=['log', 'linear'],
+                                  help='Y-axis normalization mode (default: log). Ignored when --normalization is unset.')
+    histogram_parser.add_argument('--normalization', '-n', type=int, default=None,
+                                  help='Y-axis normalization target (e.g., 256). Leave unset to output raw counts.')
+    histogram_parser.add_argument('--downsampling', '-d', type=int, default=None,
+                                  help='X-axis bin count after downsampling. Power of 2 in [256, 65536]. Leave unset to keep native bit depth.')
 
     # tool reshape subcommand
     reshape_parser = tool_subparsers.add_parser('reshape', help='Four-point perspective correction')
@@ -759,6 +776,22 @@ def main():
 
             if not success:
                 sys.exit(1)
+        elif args.tool_command == 'histogram':
+            try:
+                hist = compute_histogram(
+                    input_path=args.input,
+                    hist_type=args.type,
+                    gamma=args.gamma,
+                    mode=args.mode,
+                    normalization=args.normalization,
+                    downsampling=args.downsampling,
+                )
+            except (FileNotFoundError, ValueError) as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+            sys.stdout.write(json.dumps(hist))
+            sys.stdout.write("\n")
         else:
             tool_parser.print_help()
             sys.exit(1)
