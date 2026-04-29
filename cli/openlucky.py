@@ -12,6 +12,7 @@ from cli.lib.raw_to_tiff import raw_to_tiff
 from cli.lib.tool.resize import resize_image
 from cli.lib.tool.reshape import reshape_image, parse_point, parse_shape
 from cli.lib.tool.histogram import compute_histogram
+from cli.lib.tool.pick import pick_color
 from cli.lib.curve.levels import levels_clip
 from cli.constants.image_formats import IMAGE_EXTENSIONS, RAW_EXTENSIONS
 
@@ -179,6 +180,15 @@ def main():
                                help='Resize mode: ratio (0-1) or fixed-value (positive integer) (default: fixed-value)')
     resize_parser.add_argument('--value', '-v', required=True,
                                help='Resize value: ratio (0-1 float) or fixed-value (positive integer)')
+
+    # tool pick subcommand
+    pick_parser = tool_subparsers.add_parser('pick', help='Pick a single pixel color (JSON output to stdout)')
+    pick_parser.add_argument('--input', '-i', required=True, help='Input image file path')
+    pick_parser.add_argument('--x', '-x', type=int, required=True, help='X pixel coordinate (0-indexed)')
+    pick_parser.add_argument('--y', '-y', type=int, required=True, help='Y pixel coordinate (0-indexed)')
+    pick_parser.add_argument('--format', '-f', default='8',
+                             choices=['8', '16'],
+                             help='Output bit depth (default: 8)')
 
     # tool histogram subcommand
     histogram_parser = tool_subparsers.add_parser('histogram', help='Compute image histogram (JSON output to stdout)')
@@ -776,6 +786,20 @@ def main():
 
             if not success:
                 sys.exit(1)
+        elif args.tool_command == 'pick':
+            try:
+                result = pick_color(
+                    input_path=args.input,
+                    x=args.x,
+                    y=args.y,
+                    output_format=args.format,
+                )
+            except (FileNotFoundError, ValueError) as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+            sys.stdout.write(json.dumps(result))
+            sys.stdout.write("\n")
         elif args.tool_command == 'histogram':
             try:
                 hist = compute_histogram(
