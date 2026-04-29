@@ -1207,6 +1207,49 @@ function createWindow() {
     }
   })
 
+  // Handle pick-color request — eyedropper picks pixel from source TIFF/RAW
+  // (not from JPEG preview) so the returned RGB matches the file's truth.
+  // Promise-based so callers can `await ipcRenderer.invoke('pick-color', ...)`.
+  ipcMain.handle('pick-color', async (_event, { filePath, x, y, format = '8' }) => {
+    return new Promise((resolve, reject) => {
+      const command = getOpenLuckyPath()
+      const args = [
+        'tool', 'pick',
+        '-i', filePath,
+        '-x', String(x),
+        '-y', String(y),
+        '-f', String(format),
+      ]
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
+      const child = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      })
+
+      let stdout = ''
+      let stderr = ''
+      child.stdout.on('data', (data) => { stdout += data.toString() })
+      child.stderr.on('data', (data) => { stderr += data.toString() })
+
+      child.on('error', (err) => {
+        reject(new Error(`Failed to spawn pick: ${err.message}`))
+      })
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(stderr.trim() || `pick exited with code ${code}`))
+          return
+        }
+        try {
+          resolve(JSON.parse(stdout))
+        } catch (e) {
+          reject(new Error(`Failed to parse pick output: ${e.message}`))
+        }
+      })
+    })
+  })
+
   // Handle apply-filmparambatch request
   ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0 }) => {
     try {
