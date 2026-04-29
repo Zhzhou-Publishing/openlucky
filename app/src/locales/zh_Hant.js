@@ -52,9 +52,13 @@ export default {
       copyParams: '複製參數',
       pasteParams: '貼上參數',
       applyPreset: '套用預設值',
+      pickMaskColor: '吸取色罩顏色',
       rotate: '旋轉',
       rotateClockwise: '順時針 90°',
       rotateCounterClockwise: '逆時針 90°'
+    },
+    eyedropper: {
+      exitHint: '吸管模式已啟用，點擊圖片完成取色，按 ESC 退出'
     },
     applyPresetModal: {
       title: '選擇預設',

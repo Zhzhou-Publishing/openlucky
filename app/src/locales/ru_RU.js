@@ -52,9 +52,13 @@ export default {
       copyParams: 'Копировать параметры',
       pasteParams: 'Вставить параметры',
       applyPreset: 'Применить пресет',
+      pickMaskColor: 'Взять цвет маски',
       rotate: 'Поворот',
       rotateClockwise: 'По часовой 90°',
       rotateCounterClockwise: 'Против часовой 90°'
+    },
+    eyedropper: {
+      exitHint: 'Пипетка активна — кликните по изображению, ESC для отмены'
     },
     applyPresetModal: {
       title: 'Выберите пресет',

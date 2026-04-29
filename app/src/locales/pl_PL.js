@@ -52,9 +52,13 @@ export default {
       copyParams: 'Kopiuj parametry',
       pasteParams: 'Wklej parametry',
       applyPreset: 'Zastosuj preset',
+      pickMaskColor: 'Pobierz kolor maski',
       rotate: 'Obróć',
       rotateClockwise: 'Zgodnie z ruchem wskazówek zegara 90°',
       rotateCounterClockwise: 'Przeciwnie do ruchu wskazówek zegara 90°'
+    },
+    eyedropper: {
+      exitHint: 'Pipeta aktywna — kliknij obraz, aby pobrać, ESC aby anulować'
     },
     applyPresetModal: {
       title: 'Wybierz preset',

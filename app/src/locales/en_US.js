@@ -52,9 +52,13 @@ export default {
       copyParams: 'Copy Parameters',
       pasteParams: 'Paste Parameters',
       applyPreset: 'Apply Preset',
+      pickMaskColor: 'Pick Mask Color',
       rotate: 'Rotate',
       rotateClockwise: 'Clockwise 90°',
       rotateCounterClockwise: 'Counter-clockwise 90°'
+    },
+    eyedropper: {
+      exitHint: 'Eyedropper active — click the image to pick, press ESC to cancel'
     },
     applyPresetModal: {
       title: 'Select a Preset',

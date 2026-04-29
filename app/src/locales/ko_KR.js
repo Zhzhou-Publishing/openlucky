@@ -52,9 +52,13 @@ export default {
       copyParams: '매개변수(媒介變數) 복사',
       pasteParams: '매개변수(媒介變數) 붙여넣기',
       applyPreset: '프리셋 적용(適用)',
+      pickMaskColor: '마스크 색상(色相) 추출(抽出)',
       rotate: '회전(回轉)',
       rotateClockwise: '시계 방향 90°',
       rotateCounterClockwise: '반시계 방향 90°'
+    },
+    eyedropper: {
+      exitHint: '스포이트 활성(活性) — 이미지를 클릭(click)하여 추출(抽出), ESC로 취소(取消)'
     },
     applyPresetModal: {
       title: '프리셋 선택(選擇)',

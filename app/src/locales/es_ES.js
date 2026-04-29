@@ -52,9 +52,13 @@ export default {
       copyParams: 'Copiar parámetros',
       pasteParams: 'Pegar parámetros',
       applyPreset: 'Aplicar preset',
+      pickMaskColor: 'Tomar color de la máscara',
       rotate: 'Rotar',
       rotateClockwise: 'Sentido horario 90°',
       rotateCounterClockwise: 'Sentido antihorario 90°'
+    },
+    eyedropper: {
+      exitHint: 'Cuentagotas activo — haz clic en la imagen para elegir, ESC para cancelar'
     },
     applyPresetModal: {
       title: 'Seleccionar un preset',

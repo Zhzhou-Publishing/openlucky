@@ -35,11 +35,12 @@
       <!-- Main Content Area - Right Side -->
       <div class="main-content">
         <!-- Large Image Display -->
-        <div class="image-display" :style="{ height: imageDisplayHeight }" @contextmenu.prevent="onContextMenu">
+        <div class="image-display" :class="{ 'eyedropper-active': eyedropperActive }" :style="{ height: imageDisplayHeight }" @contextmenu.prevent="onContextMenu">
           <div class="image-wrapper">
-            <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" />
+            <img v-if="fullResImageUrl" :src="fullResImageUrl" :alt="currentImage.name" class="main-image" @click="onImageClick" />
             <div v-if="isCurrentImageAffected" class="applying-badge">{{ $t('photoEdit.applying') }}</div>
           </div>
+          <div v-if="eyedropperActive" class="eyedropper-hint">{{ $t('photoEdit.eyedropper.exitHint') }}</div>
         </div>
       </div>
 
@@ -164,6 +165,60 @@ const ctxMenuVisible = ref(false)
 const ctxMenuPos = ref({ x: 0, y: 0 })
 const paramClipboard = ref(null)
 
+// 吸管模式：激活后 cursor 变十字，点击主图取色填入 mask + gamma + contrast，点完或按 ESC 自动退出。
+const eyedropperActive = ref(false)
+
+function startEyedropper() {
+  if (!currentImage.value || !fullResImageUrl.value) return
+  if (isAllImagesAffected.value || isCurrentImageAffected.value) return
+  eyedropperActive.value = true
+}
+
+function exitEyedropper() {
+  eyedropperActive.value = false
+}
+
+async function onImageClick(e) {
+  if (!eyedropperActive.value) return
+  if (!currentImage.value) return
+
+  const img = e.currentTarget
+  const rect = img.getBoundingClientRect()
+  const naturalW = img.naturalWidth
+  const naturalH = img.naturalHeight
+  if (!naturalW || !naturalH || rect.width === 0 || rect.height === 0) {
+    exitEyedropper()
+    return
+  }
+
+  const xInImg = e.clientX - rect.left
+  const yInImg = e.clientY - rect.top
+  const pixelX = Math.max(0, Math.min(naturalW - 1, Math.floor(xInImg * naturalW / rect.width)))
+  const pixelY = Math.max(0, Math.min(naturalH - 1, Math.floor(yInImg * naturalH / rect.height)))
+
+  try {
+    const ipcRenderer = window.require('electron').ipcRenderer
+    const result = await ipcRenderer.invoke('pick-color', {
+      filePath: currentImage.value.path,
+      x: pixelX,
+      y: pixelY,
+      format: '8',
+    })
+    if (result && Array.isArray(result.rgb) && result.rgb.length === 3) {
+      input1.value = result.rgb[0]
+      input2.value = result.rgb[1]
+      input3.value = result.rgb[2]
+      input4.value = 2.2
+      input5.value = 1.1
+      apply()
+    }
+  } catch (err) {
+    console.error('Pick color failed:', err)
+  } finally {
+    exitEyedropper()
+  }
+}
+
 function copyParams() {
   paramClipboard.value = {
     mask_r: input1.value,
@@ -222,6 +277,7 @@ const ctxMenuItems = computed(() => {
     { label: t('photoEdit.contextMenu.copyParams'), action: copyParams, disabled: busy },
     { label: t('photoEdit.contextMenu.pasteParams'), action: pasteParams, disabled: busy || !paramClipboard.value },
     { label: t('photoEdit.contextMenu.applyPreset'), action: openPresetModal, disabled: busy || globalPresets.value.length === 0 },
+    { label: t('photoEdit.contextMenu.pickMaskColor'), action: startEyedropper, disabled: busy || !currentImage.value || !fullResImageUrl.value },
     { type: 'separator' },
     {
       label: t('photoEdit.contextMenu.rotate'),
@@ -789,6 +845,12 @@ const previousImage = () => {
 }
 
 function handleKeydown(event) {
+  if (event.key === 'Escape' && eyedropperActive.value) {
+    event.preventDefault()
+    exitEyedropper()
+    return
+  }
+
   // Check if this is one of our navigation shortcuts
   const isNavigationShortcut = (event.key === 'ArrowUp' && event.ctrlKey) ||
     (event.key === 'ArrowDown' && event.ctrlKey) ||
@@ -1263,6 +1325,29 @@ onUnmounted(() => {
   padding: 20px;
   overflow: hidden;
   width: 100%;
+  position: relative;
+}
+
+.image-display.eyedropper-active,
+.image-display.eyedropper-active .main-image {
+  cursor: crosshair;
+}
+
+.eyedropper-hint {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 20;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .image-wrapper {

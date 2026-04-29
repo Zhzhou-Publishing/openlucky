@@ -52,9 +52,13 @@ export default {
       copyParams: 'Copiar parâmetros',
       pasteParams: 'Colar parâmetros',
       applyPreset: 'Aplicar predefinição',
+      pickMaskColor: 'Escolher cor da máscara',
       rotate: 'Rodar',
       rotateClockwise: 'Sentido horário 90°',
       rotateCounterClockwise: 'Sentido anti-horário 90°'
+    },
+    eyedropper: {
+      exitHint: 'Conta-gotas ativo — clique na imagem para escolher, ESC para cancelar'
     },
     applyPresetModal: {
       title: 'Selecionar uma predefinição',

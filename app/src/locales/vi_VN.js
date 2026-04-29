@@ -52,9 +52,13 @@ export default {
       copyParams: 'Sao chép tham số',
       pasteParams: 'Dán tham số',
       applyPreset: 'Áp dụng preset',
+      pickMaskColor: 'Lấy màu mặt nạ',
       rotate: 'Xoay',
       rotateClockwise: 'Theo chiều kim đồng hồ 90°',
       rotateCounterClockwise: 'Ngược chiều kim đồng hồ 90°'
+    },
+    eyedropper: {
+      exitHint: 'Đang ở chế độ ống hút màu — bấm vào ảnh để lấy, nhấn ESC để hủy'
     },
     applyPresetModal: {
       title: 'Chọn preset',

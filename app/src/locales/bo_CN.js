@@ -52,9 +52,13 @@ export default {
       copyParams: 'ཚད་གཞི་འདྲ་ཕབ།',
       pasteParams: 'ཚད་གཞི་སྦྱར།',
       applyPreset: 'སྔོན་སྒྲིག་སྦྱོར།',
+      pickMaskColor: 'གདོས་མཐོང་གི་ཁ་དོག་ལེན།',
       rotate: 'བསྐོར་སྐྱོད།',
       rotateClockwise: 'ཆུ་ཚོད་ཀྱི་ཕྱོགས་སུ་ 90°',
       rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°'
+    },
+    eyedropper: {
+      exitHint: 'ཁ་དོག་ལེན་ཐབས་འགོ་འཛུགས། ཨང་པར་ལ་ཨེབ་ཞིང་ལེན། ESC བཙིར་ནས་ཕྱིར་འཐེན།'
     },
     applyPresetModal: {
       title: 'སྔོན་སྒྲིག་འདེམས།',

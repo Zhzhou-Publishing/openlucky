@@ -52,9 +52,13 @@ export default {
       copyParams: 'Parameter kopieren',
       pasteParams: 'Parameter einfügen',
       applyPreset: 'Voreinstellung anwenden',
+      pickMaskColor: 'Maskenfarbe aufnehmen',
       rotate: 'Drehen',
       rotateClockwise: 'Im Uhrzeigersinn 90°',
       rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°'
+    },
+    eyedropper: {
+      exitHint: 'Pipette aktiv — Bild anklicken zum Aufnehmen, ESC zum Abbrechen'
     },
     applyPresetModal: {
       title: 'Voreinstellung auswählen',
