@@ -16,7 +16,7 @@ def get_white_point_manual(img, roi=None, percentile=99.0):
 
     if roi is not None:
         # 解析坐标并强制转为整数
-        x1, y1, x2, y2 = [int(round(c)) for c in roi]
+        x1, y1, x2, y2 = [int(round(c or 0)) for c in roi]
 
         # 边界安全检查
         x1, y1 = max(0, x1), max(0, y1)
