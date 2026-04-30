@@ -125,13 +125,18 @@ def load_image_for_histogram(input_path):
 
 
 def compute_histogram(input_path, hist_type='rgbl', gamma=1.0,
-                     mode='log', normalization=None, downsampling=None):
+                     mode='log', normalization=None, downsampling=None,
+                     area=None):
     """Compute histogram per pr/020.histogram.md.
 
     Returns a 2-D list of ints. Outer length depends on hist_type
     (rgbl → 4, ordered R, G, B, L). Inner length is `downsampling`
     when set, otherwise the native bin count of the source image
     (256 for 8-bit, 65536 for 16-bit).
+
+    If `area` is provided as (x1, y1, x2, y2), only pixels strictly
+    inside that rectangle contribute. Coordinates are clipped to the
+    image bounds; an empty intersection raises ValueError.
     """
     if hist_type not in SUPPORTED_TYPES:
         raise ValueError(
@@ -149,6 +154,20 @@ def compute_histogram(input_path, hist_type='rgbl', gamma=1.0,
             )
 
     img = load_image_for_histogram(input_path)
+
+    if area is not None:
+        x1, y1, x2, y2 = area
+        h_img, w_img = img.shape[:2]
+        x1c = max(0, min(w_img, int(x1)))
+        x2c = max(0, min(w_img, int(x2)))
+        y1c = max(0, min(h_img, int(y1)))
+        y2c = max(0, min(h_img, int(y2)))
+        if x2c <= x1c or y2c <= y1c:
+            raise ValueError(
+                f"Invalid --area: empty intersection with image bounds "
+                f"(image is {w_img}x{h_img}, area={area})"
+            )
+        img = img[y1c:y2c, x1c:x2c]
 
     if img.dtype == np.uint16:
         native_bins = 65536

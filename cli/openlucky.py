@@ -342,6 +342,8 @@ def main():
                                   help='Y-axis normalization target (e.g., 256). Leave unset to output raw counts.')
     histogram_parser.add_argument('--downsampling', '-d', type=int, default=None,
                                   help='X-axis bin count after downsampling. Power of 2 in [256, 65536]. Leave unset to keep native bit depth.')
+    histogram_parser.add_argument('--area', '-a', required=False, default=None,
+                                  help='Restrict histogram to pixels inside this rectangle, format "x1,y1,x2,y2" (must satisfy x2>x1 and y2>y1). Leave empty to use the whole image.')
 
     # tool reshape subcommand
     reshape_parser = tool_subparsers.add_parser('reshape', help='Four-point perspective correction')
@@ -1033,6 +1035,11 @@ def main():
             sys.stdout.write("\n")
         elif args.tool_command == 'histogram':
             try:
+                hist_area = parse_area(args.area)
+            except ValueError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+            try:
                 hist = compute_histogram(
                     input_path=args.input,
                     hist_type=args.type,
@@ -1040,6 +1047,7 @@ def main():
                     mode=args.mode,
                     normalization=args.normalization,
                     downsampling=args.downsampling,
+                    area=hist_area,
                 )
             except (FileNotFoundError, ValueError) as e:
                 print(f"Error: {e}", file=sys.stderr)

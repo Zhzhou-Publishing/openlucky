@@ -242,7 +242,7 @@ const HISTOGRAM_HEIGHT = 100
 const HISTOGRAM_BINS = 256
 const histogramData = ref(null)
 let histogramRequestSeq = 0
-async function fetchHistogramFor(directoryPath, filename) {
+async function fetchHistogramFor(directoryPath, filename, area) {
   if (!directoryPath || !filename || !window.require) {
     histogramData.value = null
     return
@@ -255,6 +255,7 @@ async function fetchHistogramFor(directoryPath, filename) {
       filename,
       height: HISTOGRAM_HEIGHT,
       downsampling: HISTOGRAM_BINS,
+      area: area || null,
     })
     // 防止旧请求覆盖新结果（用户快速切图时容易触发）。
     if (seq === histogramRequestSeq) {
@@ -1443,12 +1444,19 @@ watch(images, () => {
   }
 })
 
-// 主图刷新（切图、apply 完成）后重算直方图。fullResImageUrl 在两种
-// 情况下都会变（路径不同，或时间戳不同），是个干净的触发器。
-watch(fullResImageUrl, () => {
+// 当前图片的白点取样区。计算成 computed 让它对 areaSelectionsByName
+// 里这一项的增删/改全都触发响应。
+const currentImageArea = computed(() => {
+  if (!currentImage.value) return null
+  return unwrapArea(areaSelectionsByName.value[currentImage.value.name]) || null
+})
+
+// 主图刷新（切图、apply 完成）或白点选区改动时重算直方图。
+// fullResImageUrl 处理图片身份/时间戳变化，currentImageArea 处理选区变化。
+watch([fullResImageUrl, currentImageArea], () => {
   const filename = currentImage.value?.name
   if (filename && workingDirectory.value) {
-    fetchHistogramFor(workingDirectory.value, filename)
+    fetchHistogramFor(workingDirectory.value, filename, currentImageArea.value)
   } else {
     histogramData.value = null
   }

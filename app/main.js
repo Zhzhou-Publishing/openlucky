@@ -1297,7 +1297,7 @@ function createWindow() {
   // Tuned for the PhotoEdit overlay: 256 bins, log-normalized to
   // height 100 so the renderer can draw the polylines without
   // rescaling.
-  ipcMain.handle('compute-histogram', async (_event, { directoryPath, filename, height = 100, downsampling = 256 }) => {
+  ipcMain.handle('compute-histogram', async (_event, { directoryPath, filename, height = 100, downsampling = 256, area = null }) => {
     return new Promise((resolve, reject) => {
       const presets = readPresetJson(directoryPath)
       const filePath = resolveImagePath(directoryPath, filename, presets)
@@ -1309,6 +1309,9 @@ function createWindow() {
         '-n', String(height),
         '-m', 'log',
       ]
+      if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
+        args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
+      }
       const child = spawn(command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
