@@ -66,7 +66,8 @@
         <Tabs :tabs="[
           { id: 'basic', label: $t('photoEdit.basicTab') },
           { id: 'dye_concentration_correction', label: $t('photoEdit.advancedTab') },
-          { id: 'exposure', label: $t('photoEdit.exposureTab') }
+          { id: 'exposure', label: $t('photoEdit.exposureTab') },
+          { id: 'white_balance', label: $t('photoEdit.whiteBalanceTab') }
         ]" :default-tab="'basic'" @tab-change="handleTabChange">
           <template #default="{ activeTab }">
             <!-- Basic Parameters Tab -->
@@ -109,6 +110,35 @@
               <NumberInput :label="$t('photoEdit.exposureTab')" v-model="exposure" :max="3.0" :min="-3.0"
                 :step-value="0.1" :disabled="isAllImagesAffected || isCurrentImageAffected"
                 @keydown="handleInputKeydown" />
+            </div>
+
+            <!-- White Balance Tab -->
+            <div v-if="activeTab === 'white_balance'" class="tab-content wb-tab">
+              <label class="wb-auto-label">
+                <input type="checkbox" v-model="whiteBalanceAuto"
+                  :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                {{ $t('photoEdit.whiteBalanceAuto') }}
+              </label>
+              <div class="wb-rows">
+                <div class="wb-row">
+                  <Slider class="wb-row-slider" :label="$t('photoEdit.whiteBalanceTemp')"
+                    v-model="whiteBalanceTemp" :min="-50" :max="50" :step="1"
+                    :track-gradient="WB_TEMP_GRADIENT"
+                    :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected" />
+                  <NumberInput v-model="whiteBalanceTemp" :max="50" :min="-50" :step-value="1"
+                    :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected"
+                    @keydown="handleInputKeydown" />
+                </div>
+                <div class="wb-row">
+                  <Slider class="wb-row-slider" :label="$t('photoEdit.whiteBalanceTint')"
+                    v-model="whiteBalanceTint" :min="-50" :max="50" :step="1"
+                    :track-gradient="WB_TINT_GRADIENT"
+                    :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected" />
+                  <NumberInput v-model="whiteBalanceTint" :max="50" :min="-50" :step-value="1"
+                    :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected"
+                    @keydown="handleInputKeydown" />
+                </div>
+              </div>
             </div>
 
             <!-- Common Action Buttons -->
@@ -187,6 +217,14 @@ const contrastR = ref(1.0)
 const contrastG = ref(1.0)
 const contrastB = ref(1.0)
 const exposure = ref(0)
+const whiteBalanceAuto = ref(true)
+const whiteBalanceTemp = ref(0)
+const whiteBalanceTint = ref(0)
+// 渐变贴在 slider 轨道上，给用户一个色温/色调拉杆方向的视觉锚点：
+//   色温 -50 偏冷蓝 / 0 中性 / +50 偏暖琥珀
+//   色调 -50 偏绿  / 0 中性 / +50 偏品红
+const WB_TEMP_GRADIENT = 'linear-gradient(to right, #4a90e2 0%, #cccccc 50%, #f5a623 100%)'
+const WB_TINT_GRADIENT = 'linear-gradient(to right, #4caf50 0%, #cccccc 50%, #e91e63 100%)'
 const presetsData = ref({})
 const presetsDataLoaded = ref(false)
 const operationAreaRef = ref(null)
@@ -235,6 +273,13 @@ function unwrapArea(stored) {
     x2: stored.x2,
     y2: stored.y2,
   }
+}
+
+// 序列化白平衡为 CLI 字符串：自动模式直接给 "auto"，手动模式给 "temp,tint"。
+// "none"（关闭白平衡）暂时不在 UI 里暴露，需要的话直接编辑 sessionStorage / 走 CLI。
+function currentWhiteBalanceForIpc() {
+  if (whiteBalanceAuto.value) return 'auto'
+  return `${Math.round(whiteBalanceTemp.value)},${Math.round(whiteBalanceTint.value)}`
 }
 
 // ROI 的测量帧尺寸（即用户看到的 working-dir 预览图的自然像素），CLI 用这个
@@ -791,7 +836,8 @@ const apply = () => {
       rotateClockwise: currentRotateClockwise.value,
       area: areaForIpc,
       areaBasis: areaBasisForIpc,
-      exposure: exposure.value
+      exposure: exposure.value,
+      whiteBalance: currentWhiteBalanceForIpc()
     })
 
     // Handle response
@@ -879,7 +925,8 @@ const applyPreview = () => {
       rotateClockwise: currentRotateClockwise.value,
       area: areaForIpc,
       areaBasis: areaBasisForIpc,
-      exposure: exposure.value
+      exposure: exposure.value,
+      whiteBalance: currentWhiteBalanceForIpc()
     })
 
     // Handle response
@@ -968,7 +1015,8 @@ const applyAll = () => {
       rotateClockwise: currentRotateClockwise.value,
       area: areaForIpc,
       areaBasis: areaBasisForIpc,
-      exposure: exposure.value
+      exposure: exposure.value,
+      whiteBalance: currentWhiteBalanceForIpc()
     })
 
     // Handle response
@@ -1790,6 +1838,49 @@ onUnmounted(() => {
   flex: 1;
   max-width: 480px;
   min-width: 200px;
+}
+
+.tab-content.wb-tab {
+  gap: 24px;
+  align-items: center;
+}
+
+.wb-auto-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #444;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.wb-auto-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.wb-auto-label input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.wb-rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 560px;
+  min-width: 240px;
+}
+
+.wb-row {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.wb-row-slider {
+  flex: 1;
 }
 
 .action-buttons {

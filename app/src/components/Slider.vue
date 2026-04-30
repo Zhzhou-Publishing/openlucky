@@ -7,7 +7,7 @@
       :class="{ disabled }"
       @mousedown="onTrackMouseDown"
     >
-      <div class="slider-track-fill-bg"></div>
+      <div class="slider-track-fill-bg" :style="trackGradient ? { background: trackGradient } : null"></div>
       <div
         class="slider-thumb"
         :style="{ left: thumbLeftPct + '%' }"
@@ -27,6 +27,7 @@ const props = defineProps({
   max: { type: Number, default: 100 },
   step: { type: Number, default: 1 },
   disabled: { type: Boolean, default: false },
+  trackGradient: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue'])

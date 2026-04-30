@@ -1181,7 +1181,7 @@ function createWindow() {
   })
 
   // Handle apply-filmparam request
-  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null }) => {
+  ipcMain.on('apply-filmparam', async (event, { inputPath, outputPath, filename, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
     try {
       // Construct the input file path
       const inputFile = path.join(inputPath, filename)
@@ -1202,6 +1202,9 @@ function createWindow() {
       }
       if (typeof exposure === 'number' && Number.isFinite(exposure)) {
         args.push('--exposure', exposure.toString())
+      }
+      if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
+        args.push('--white-balance', whiteBalance)
       }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -1287,7 +1290,7 @@ function createWindow() {
   })
 
   // Handle apply-filmparambatch request
-  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null }) => {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
     try {
       // Construct the command
       const command = getOpenLuckyPath()
@@ -1300,6 +1303,9 @@ function createWindow() {
       }
       if (typeof exposure === 'number' && Number.isFinite(exposure)) {
         args.push('--exposure', exposure.toString())
+      }
+      if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
+        args.push('--white-balance', whiteBalance)
       }
       console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
@@ -1568,6 +1574,10 @@ function createWindow() {
           const presetExposure = presetParams.exposure_ev
           if (typeof presetExposure === 'number' && Number.isFinite(presetExposure)) {
             args.push('--exposure', presetExposure.toString())
+          }
+          const presetWhiteBalance = presetParams.white_balance
+          if (typeof presetWhiteBalance === 'string' && presetWhiteBalance.length > 0) {
+            args.push('--white-balance', presetWhiteBalance)
           }
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 

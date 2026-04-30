@@ -214,7 +214,7 @@ def process_film_bytestream_with_params(
     scaling_factor = np.max(white_point_vec)
     gains = np.array([1.0 / scaling_factor] * 3)
 
-    if white_balance != "no":
+    if white_balance != "none":
         # 首先执行自动白平衡 (AWB) 的基础增益
         # 让 RGB 比例强制回归 1:1:1
         awb_gains = 1.0 / (white_point_vec + 1e-6)

@@ -126,6 +126,48 @@ def parse_area_basis(s):
     return (w, h)
 
 
+def parse_white_balance(s):
+    """Parse '--white-balance' into the value process_film expects.
+
+    Accepts:
+      - 'none'           → 'none'   (no white-balance correction)
+      - 'auto'           → 'auto'   (full AWB pulling RGB to neutral)
+      - 'x,y' integers in [-50, 50] → (x, y) tuple (AWB then offset)
+
+    Raises ValueError on malformed input.
+    """
+    if s is None:
+        return 'auto'
+    s = s.strip()
+    if s in ('none', 'auto'):
+        return s
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid --white-balance: expected 'none', 'auto', or 'x,y', got: {s!r}"
+        )
+    try:
+        x, y = (int(p) for p in parts)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --white-balance values. x and y must be integers, got: {s!r}"
+        )
+    if not (-50 <= x <= 50 and -50 <= y <= 50):
+        raise ValueError(
+            f"Invalid --white-balance: x and y must be in [-50, 50], got x={x}, y={y}"
+        )
+    return (x, y)
+
+
+def serialize_white_balance(wb):
+    """Round-trip the parsed --white-balance value back to its CLI string form
+    so it can be persisted in .preset.json and replayed verbatim by SaveAll.
+    """
+    if isinstance(wb, (list, tuple)):
+        return f"{wb[0]},{wb[1]}"
+    return wb
+
+
 def find_config_file():
     """
     Search for configuration file, try in the following order:
@@ -178,6 +220,8 @@ def main():
                              help='Exposure curve mode (default: 3ev)')
     film_parser.add_argument('--exposure', required=False, type=float, default=0.0,
                              help='Exposure compensation in EV (default: 0.0)')
+    film_parser.add_argument('--white-balance', '-w', required=False, default='auto',
+                             help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -195,6 +239,8 @@ def main():
                                    help='Exposure curve mode (default: 3ev)')
     filmbatch_parser.add_argument('--exposure', required=False, type=float, default=0.0,
                                    help='Exposure compensation in EV (default: 0.0)')
+    filmbatch_parser.add_argument('--white-balance', '-w', required=False, default='auto',
+                                   help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -213,6 +259,8 @@ def main():
                                    help='Exposure curve mode (default: 3ev)')
     filmparam_parser.add_argument('--exposure', required=False, type=float, default=0.0,
                                    help='Exposure compensation in EV (default: 0.0)')
+    filmparam_parser.add_argument('--white-balance', '-w', required=False, default='auto',
+                                   help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -231,6 +279,8 @@ def main():
                                          help='Exposure curve mode (default: 3ev)')
     filmparambatch_parser.add_argument('--exposure', required=False, type=float, default=0.0,
                                          help='Exposure compensation in EV (default: 0.0)')
+    filmparambatch_parser.add_argument('--white-balance', '-w', required=False, default='auto',
+                                         help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -328,6 +378,7 @@ def main():
         # Validate optional ROI early so we fail before doing any I/O.
         try:
             roi = parse_area(args.area)
+            white_balance = parse_white_balance(args.white_balance)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -397,6 +448,7 @@ def main():
             wp_roi_y2=roi[3] if roi else None,
             exposure_ev_mode=args.exposure_mode,
             exposure_ev=args.exposure,
+            white_balance=white_balance,
             is_raw=is_raw
         )
 
@@ -425,6 +477,7 @@ def main():
                 if preset_config:
                     # Add rotate_clockwise to preset_config
                     preset_config['rotate_clockwise'] = args.rotate_clockwise
+                    preset_config['white_balance'] = serialize_white_balance(white_balance)
                     # Use forward slashes in path to avoid double backslashes in JSON
                     if args.output is not None:
                         output_path_for_preset = Path(args.output)
@@ -436,6 +489,7 @@ def main():
         # Validate optional ROI early so we fail before walking the directory.
         try:
             roi = parse_area(args.area)
+            white_balance = parse_white_balance(args.white_balance)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -524,6 +578,7 @@ def main():
                     wp_roi_y2=roi[3] if roi else None,
                     exposure_ev_mode=args.exposure_mode,
                     exposure_ev=args.exposure,
+                    white_balance=white_balance,
                 )
 
 
@@ -542,6 +597,7 @@ def main():
                         presets_by_dir[dir_key][input_file.name][key] = value
                 # Add rotate_clockwise
                 presets_by_dir[dir_key][input_file.name]['rotate_clockwise'] = args.rotate_clockwise
+                presets_by_dir[dir_key][input_file.name]['white_balance'] = serialize_white_balance(white_balance)
             except Exception as e:
                 print(e)
                 fail_count += 1
@@ -569,6 +625,7 @@ def main():
         try:
             roi = parse_area(args.area)
             area_basis = parse_area_basis(args.area_basis)
+            white_balance = parse_white_balance(args.white_balance)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -646,6 +703,7 @@ def main():
             area_basis_h=area_basis[1] if area_basis else None,
             exposure_ev_mode=args.exposure_mode,
             exposure_ev=args.exposure,
+            white_balance=white_balance,
             is_raw=is_raw
         )
 
@@ -681,6 +739,7 @@ def main():
             'rotate_clockwise': args.rotate_clockwise,
             'exposure_ev_mode': args.exposure_mode,
             'exposure_ev': args.exposure,
+            'white_balance': serialize_white_balance(white_balance),
         }
         # Persist white-point ROI + basis so a later batch save against the
         # original full-res file can replay the same sampling window.
@@ -701,6 +760,7 @@ def main():
         try:
             roi = parse_area(args.area)
             area_basis = parse_area_basis(args.area_basis)
+            white_balance = parse_white_balance(args.white_balance)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -772,6 +832,7 @@ def main():
             'rotate_clockwise': args.rotate_clockwise,
             'exposure_ev_mode': args.exposure_mode,
             'exposure_ev': args.exposure,
+            'white_balance': serialize_white_balance(white_balance),
         }
         # Persist ROI + basis alongside the per-file preset so a later
         # batch save against the original full-res file can replay sampling.
@@ -813,6 +874,7 @@ def main():
                     area_basis_h=area_basis[1] if area_basis else None,
                     exposure_ev_mode=args.exposure_mode,
                     exposure_ev=args.exposure,
+                    white_balance=white_balance,
                 )
                 success_count += 1
 
