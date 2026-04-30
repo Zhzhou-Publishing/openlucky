@@ -5,67 +5,41 @@ import cv2
 
 from cli.constants.image_formats import RAW_EXTENSIONS
 
-import matplotlib.pyplot as plt
 
-
-def get_white_point_manual(img, roi=None, percentile=99.0, debug=False):
+def get_white_point_manual(img, roi=None, percentile=99.0):
     """
-    手动设置 ROI 进行白点采样。
-
-    :param img: 输入图像 (H, W, 3), float32
-    :param roi: 坐标元组 (x1, y1, x2, y2)
-                x1, y1: 左上角坐标
-                x2, y2: 右下角坐标
-                如果为 None，则使用全图
+    手动 ROI 采样：在原图中绘制红框，并强制物理切片以确保采样准确。
     """
-    h, w = img.shape[:2]
+    # 确保图像是 float32 格式且是副本，防止修改原始输入
+    img_work = img.astype(np.float32).copy()
+    h, w = img_work.shape[:2]
 
-    # 1. 区域判断与切片
     if roi is not None:
-        x1, y1, x2, y2 = roi
+        # 解析坐标并强制转为整数
+        x1, y1, x2, y2 = [int(round(c)) for c in roi]
 
-        # 基础边界保护：防止坐标越界
+        # 边界安全检查
         x1, y1 = max(0, x1), max(0, y1)
         x2, y2 = min(w, x2), min(h, y2)
 
-        # 执行切片
-        target_area = img[y1:y2, x1:x2]
+        # 【核心操作】物理切片：只把框内的数据拿出来给计算模块
+        target_area = img_work[y1:y2, x1:x2].copy()
 
-        # 检查切片是否有效
+        # 如果切片失败（比如坐标写反了），回退到全图
         if target_area.size == 0:
-            print("Error: Invalid ROI, falling back to full image.")
-            target_area = img
+            print("Warning: Invalid ROI size. Using full image.")
+            target_area = img_work
     else:
-        target_area = img
+        target_area = img_work
 
-    # 2. 调试可视化：让你确认切到的区域对不对
-    if debug:
-        plt.figure(figsize=(8, 4))
-        plt.title("Manual ROI Verification (Red Box)")
-        # 简单显示区域，如果 roi 不为空，画一个框表示范围
-        plt.imshow(img)
-        if roi is not None:
-            plt.gca().add_patch(
-                plt.Rectangle(
-                    (x1, y1),
-                    x2 - x1,
-                    y2 - y1,
-                    linewidth=2,
-                    edgecolor="r",
-                    facecolor="none",
-                )
-            )
-        plt.show()
-
-    # 3. 计算白点
-    # 将二维区域展平为像素列表
+    # 1. 计算白点 (严格在 target_area 内采样)
     pixels = target_area.reshape(-1, 3)
-
     r_w = np.percentile(pixels[:, 0], percentile)
     g_w = np.percentile(pixels[:, 1], percentile)
     b_w = np.percentile(pixels[:, 2], percentile)
+    wp = np.array([r_w, g_w, b_w])
 
-    return np.array([r_w, g_w, b_w])
+    return wp
 
 
 def process_film_bytestream_with_params(
@@ -150,7 +124,9 @@ def process_film_bytestream_with_params(
 
     # 3.1. 计算白点向量 (r_w, g_w, b_w)
     # 使用你之前建立的强力采样函数
-    white_point_vec = get_white_point_manual(img, percentile=99.0)
+    white_point_vec = get_white_point_manual(
+        img, roi=[wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2], percentile=99.0
+    )
     print(f"Debug: Detected white point vector: {white_point_vec}")
 
     # 3.2. 核心修改：只取三个通道中的最大值作为唯一的缩放因子
