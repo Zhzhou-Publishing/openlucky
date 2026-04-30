@@ -185,6 +185,9 @@ const paramClipboard = ref(null)
 
 // 吸管模式：激活后 cursor 变十字，点击主图取色填入 mask + gamma + contrast，点完或按 ESC 自动退出。
 const eyedropperActive = ref(false)
+// 吸管 IPC 比白点框选快的时候先寄存在这，等用户完成框选再 flush 进 input1-5；
+// 用户 ESC / 无效拖拽取消框选时被丢弃。
+const pendingPickResult = ref(null)
 
 // 框选模式：激活后整张图被半透明灰色遮罩覆盖，从左上向右下拖出选区，
 // 选区内用 box-shadow 反向挖洞露出原图并加红框；松开鼠标后按文件名落入 sessionStorage，
@@ -241,6 +244,8 @@ function exitAreaSelect() {
   areaSelectActive.value = false
   areaSelectStart.value = null
   areaSelectCurrent.value = null
+  // 取消（ESC / 无效拖拽 / 重新进入其它模式）丢弃挂起的吸管结果，避免下次 flush 误填。
+  pendingPickResult.value = null
   window.removeEventListener('mousemove', onAreaMouseMoveWindow)
   window.removeEventListener('mouseup', onAreaMouseUpWindow)
 }
@@ -340,6 +345,13 @@ function onAreaMouseUpWindow(e) {
       [currentImage.value.name]: { x1, y1, x2, y2 },
     }
     persistAreaSelections()
+    // 框选成功完成时 flush 吸管寄存结果。注意必须在 exitAreaSelect 之前，
+    // exitAreaSelect 会清掉 pendingPickResult。
+    if (pendingPickResult.value) {
+      const picked = pendingPickResult.value
+      pendingPickResult.value = null
+      applyPickResult(picked)
+    }
   }
   exitAreaSelect()
 }
@@ -407,6 +419,10 @@ async function onImageClick(e) {
   const pixelX = Math.max(0, Math.min(naturalW - 1, Math.floor(xInImg * naturalW / rect.width)))
   const pixelY = Math.max(0, Math.min(naturalH - 1, Math.floor(yInImg * naturalH / rect.height)))
 
+  // 取色后立刻进入白点区域选择模式（startAreaSelect 自身会关闭吸管）。
+  // 这一步同步执行，让用户感知不到任何等待，pick-color IPC 在后台并发完成。
+  exitEyedropper()
+  startAreaSelect()
   try {
     const ipcRenderer = window.require('electron').ipcRenderer
     const result = await ipcRenderer.invoke('pick-color', {
@@ -416,18 +432,27 @@ async function onImageClick(e) {
       format: '8',
     })
     if (result && Array.isArray(result.rgb) && result.rgb.length === 3) {
-      input1.value = result.rgb[0]
-      input2.value = result.rgb[1]
-      input3.value = result.rgb[2]
-      input4.value = 2.2
-      input5.value = 1.1
-      apply()
+      const picked = { r: result.rgb[0], g: result.rgb[1], b: result.rgb[2] }
+      if (areaSelectActive.value) {
+        // 用户还没完成白点框选，先寄存；onAreaMouseUpWindow 成功路径会 flush。
+        pendingPickResult.value = picked
+      } else {
+        // 极端情况：IPC 比 mouseup 还慢，框选已结束，直接落盘。
+        applyPickResult(picked)
+      }
     }
   } catch (err) {
     console.error('Pick color failed:', err)
-  } finally {
-    exitEyedropper()
   }
+}
+
+function applyPickResult(picked) {
+  input1.value = picked.r
+  input2.value = picked.g
+  input3.value = picked.b
+  input4.value = 2.2
+  input5.value = 1.1
+  apply()
 }
 
 function copyParams() {
@@ -596,6 +621,27 @@ const selectImage = (index) => {
   currentIndex.value = index
 }
 
+// 旋转已存白点采样区，使其在新方向的图像坐标系中跟随同一块画面内容。
+// dims 必须是旋转 *前* 的显示自然像素尺寸，因为 ROI 当前就是这个坐标系。
+function rotateStoredAreaSelection(imageName, direction) {
+  const stored = areaSelectionsByName.value[imageName]
+  if (!stored) return
+  const dims = currentImageNaturalDims.value
+  if (!dims || !dims.w || !dims.h) return
+  const { w, h } = dims
+  const { x1, y1, x2, y2 } = stored
+  const rotated = direction === 'cw'
+    ? { x1: h - y2, y1: x1, x2: h - y1, y2: x2 }
+    : { x1: y1, y1: w - x2, x2: y2, y2: w - x1 }
+  areaSelectionsByName.value = {
+    ...areaSelectionsByName.value,
+    [imageName]: rotated,
+  }
+  // 当前显示的自然尺寸也跟着转 90°，新加载的图回来前先把 ROI 预览框对齐
+  currentImageNaturalDims.value = { w: h, h: w }
+  persistAreaSelections()
+}
+
 const rotateClockwiseBtn = () => {
   if (!currentImage.value) return
   const imageName = currentImage.value.name
@@ -603,6 +649,7 @@ const rotateClockwiseBtn = () => {
   let newAngle = (currentAngle + 90) % 360
   if (newAngle === 360) newAngle = 0
   rotateClockwiseMap.value[imageName] = newAngle
+  rotateStoredAreaSelection(imageName, 'cw')
   applyPreview()
 }
 
@@ -613,6 +660,7 @@ const rotateCounterClockwiseBtn = () => {
   let newAngle = currentAngle - 90
   if (newAngle < 0) newAngle = newAngle + 360
   rotateClockwiseMap.value[imageName] = newAngle
+  rotateStoredAreaSelection(imageName, 'ccw')
   applyPreview()
 }
 
