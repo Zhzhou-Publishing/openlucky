@@ -1289,6 +1289,54 @@ function createWindow() {
     })
   })
 
+  // Compute an R/G/B/L histogram of the file currently representing
+  // `filename` in `directoryPath`. We resolve the path through the
+  // shared resolveImagePath() helper so we always read the latest
+  // version (post-apply output dir if present, otherwise the working
+  // dir original) — independent of any cached paths in the renderer.
+  // Tuned for the PhotoEdit overlay: 256 bins, log-normalized to
+  // height 100 so the renderer can draw the polylines without
+  // rescaling.
+  ipcMain.handle('compute-histogram', async (_event, { directoryPath, filename, height = 100, downsampling = 256 }) => {
+    return new Promise((resolve, reject) => {
+      const presets = readPresetJson(directoryPath)
+      const filePath = resolveImagePath(directoryPath, filename, presets)
+      const command = getOpenLuckyPath()
+      const args = [
+        'tool', 'histogram',
+        '-i', filePath,
+        '-d', String(downsampling),
+        '-n', String(height),
+        '-m', 'log',
+      ]
+      const child = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      })
+
+      let stdout = ''
+      let stderr = ''
+      child.stdout.on('data', (data) => { stdout += data.toString() })
+      child.stderr.on('data', (data) => { stderr += data.toString() })
+
+      child.on('error', (err) => {
+        reject(new Error(`Failed to spawn histogram: ${err.message}`))
+      })
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(stderr.trim() || `histogram exited with code ${code}`))
+          return
+        }
+        try {
+          resolve(JSON.parse(stdout))
+        } catch (e) {
+          reject(new Error(`Failed to parse histogram output: ${e.message}`))
+        }
+      })
+    })
+  })
+
   // Handle apply-filmparambatch request
   ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
     try {
