@@ -839,7 +839,7 @@ function createWindow() {
       const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
           const command = getOpenLuckyPath()
-          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800']
+          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '8000']
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           const process = spawn(command, args, {
@@ -982,7 +982,7 @@ function createWindow() {
       const resizeImage = (inputPath, outputPath) => {
         return new Promise((resolve) => {
           const command = getOpenLuckyPath()
-          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '800']
+          const args = ['tool', 'resize', '-i', inputPath, '-o', outputPath, '-v', '8000']
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
           const process = spawn(command, args, {
