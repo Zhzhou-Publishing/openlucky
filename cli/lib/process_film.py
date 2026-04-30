@@ -57,6 +57,7 @@ def process_film_bytestream_with_params(
     wp_roi_y1=None,
     wp_roi_x2=None,
     wp_roi_y2=None,
+    white_balance="auto",
     is_raw=False,
 ):
     """
@@ -122,27 +123,45 @@ def process_film_bytestream_with_params(
     # 3. Color inversion (in 0-1 space, it's 1.0 - img)
     img = 1.0 - img
 
-    # 3.1. 计算白点向量 (r_w, g_w, b_w)
-    # 使用你之前建立的强力采样函数
+    # --- 3.1 采样白点 ---
+    # white_point_vec: [r_w, g_w, b_w]
     white_point_vec = get_white_point_manual(
         img, roi=[wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2], percentile=99.0
     )
-    print(f"Debug: Detected white point vector: {white_point_vec}")
 
-    # 3.2. 核心修改：只取三个通道中的最大值作为唯一的缩放因子
-    # 这样可以确保任何通道都不会溢出 1.0 (因为除以了最大值)
-    # 且保留了原始的 RGB 比例关系
+    # --- 3.2 白平衡与偏移逻辑 ---
+    # 默认：no 白平衡 (仅拉满曝光，不改变比例)
     scaling_factor = np.max(white_point_vec)
+    gains = np.array([1.0/scaling_factor] * 3)
 
-    # 安全防护：防止除以 0
-    scaling_factor = max(scaling_factor, 0.01)
+    if white_balance != "no":
+        # 首先执行自动白平衡 (AWB) 的基础增益
+        # 让 RGB 比例强制回归 1:1:1
+        awb_gains = 1.0 / (white_point_vec + 1e-6)
+        
+        if white_balance == "auto":
+            gains = awb_gains
+        elif isinstance(white_balance, (list, tuple)):
+            # 处理 x, y 偏移逻辑
+            off_x, off_y = white_balance # 输入范围 [-50, 50]
+            
+            # 将 50 映射为 0.5 (即 50% 的增益偏移)
+            shift_x = off_x / 100.0
+            shift_y = off_y / 100.0
+            
+            # 应用偏移
+            gains[0] = awb_gains[0] * (1.0 + shift_x) # 红
+            gains[2] = awb_gains[2] * (1.0 - shift_x) # 蓝
+            gains[1] = awb_gains[1] * (1.0 + shift_y) # 绿
+            
+    # --- 3.3 再次归一化 (防溢出) ---
+    # 无论怎么调，确保最亮的那个通道在应用增益后刚好是 1.0
+    # 这样可以维持曝光稳定，只改色调
+    max_after_wb = np.max(white_point_vec * gains)
+    gains /= (max_after_wb + 1e-6)
 
-    # 3.3. 应用归一化
-    # img 的每个像素同时除以这个因子，RGB 的比例 (128:64:32) 变为 (255:128:64)
-    img /= scaling_factor
-
-    # 3.4. 截断 (Clip)
-    # 此时 R 刚好等于 1.0 (255)，其余通道均在 0-1 之间，色彩没有改变
+    # 应用增益
+    img *= gains
     img = np.clip(img, 0, 1.0)
 
     # 4. Gamma correction
@@ -210,6 +229,7 @@ def process_film_with_params(
     wp_roi_y1=None,
     wp_roi_x2=None,
     wp_roi_y2=None,
+    white_balance="auto",
 ):
     # 1. Read input file as byte stream
     try:
@@ -239,6 +259,7 @@ def process_film_with_params(
         wp_roi_y1=wp_roi_y1,
         wp_roi_x2=wp_roi_x2,
         wp_roi_y2=wp_roi_y2,
+        white_balance=white_balance,
     )
 
     # 3. Write output byte stream to file
