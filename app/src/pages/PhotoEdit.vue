@@ -244,9 +244,52 @@ const HISTOGRAM_HEIGHT = 100
 const HISTOGRAM_BINS = 256
 const histogramData = ref(null)
 let histogramRequestSeq = 0
+function histogramCacheKey(directoryPath, filename, area) {
+  const areaKey = area ? `${area.x1},${area.y1},${area.x2},${area.y2}` : 'full'
+  return `histogram:${directoryPath}:${filename}:${areaKey}`
+}
+
+function readHistogramCache(key) {
+  try {
+    const raw = sessionStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function writeHistogramCache(key, data) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(data))
+  } catch {
+    // sessionStorage 满了就静默跳过
+  }
+}
+
+function clearHistogramCache() {
+  try {
+    const keys = []
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i)
+      if (key && key.startsWith('histogram:')) {
+        keys.push(key)
+      }
+    }
+    keys.forEach(k => sessionStorage.removeItem(k))
+  } catch {
+    // 静默跳过
+  }
+}
+
 async function fetchHistogramFor(directoryPath, filename, area) {
   if (!directoryPath || !filename || !window.require) {
     histogramData.value = null
+    return
+  }
+  const cacheKey = histogramCacheKey(directoryPath, filename, area)
+  const cached = readHistogramCache(cacheKey)
+  if (cached) {
+    histogramData.value = cached
     return
   }
   const seq = ++histogramRequestSeq
@@ -262,6 +305,7 @@ async function fetchHistogramFor(directoryPath, filename, area) {
     // 防止旧请求覆盖新结果（用户快速切图时容易触发）。
     if (seq === histogramRequestSeq) {
       histogramData.value = result
+      writeHistogramCache(cacheKey, result)
     }
   } catch (err) {
     console.error('Failed to compute histogram:', err)
@@ -965,6 +1009,7 @@ const apply = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
+        clearHistogramCache();
         refreshImage(imageName);
         loadFullResImage();
         loadPresets();
@@ -1054,6 +1099,7 @@ const applyPreview = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
+        clearHistogramCache();
         refreshImage(imageName);
         loadFullResImage();
         loadPresets();
@@ -1149,6 +1195,7 @@ const applyAll = () => {
 
     ipcRenderer.once('filmparambatch-apply-success', (_, result) => {
       console.log(result.message)
+      clearHistogramCache()
       // Update all image timestamps to refresh display without reloading page
       images.value.forEach(img => {
         img.timestamp = Date.now()
