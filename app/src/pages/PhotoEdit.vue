@@ -154,6 +154,8 @@
       </div>
     </div>
 
+    <HistogramOverlay v-if="histogramData" :histogram="histogramData" />
+
     <ContextMenu v-model="ctxMenuVisible" :items="ctxMenuItems" :position="ctxMenuPos" />
 
     <Modal
@@ -177,6 +179,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import NumberInput from '../components/NumberInput.vue'
 import Slider from '../components/Slider.vue'
+import HistogramOverlay from '../components/HistogramOverlay.vue'
 import SaveAllButton from '../components/SaveAllButton.vue'
 import Tabs from '../components/Tabs.vue'
 import ContextMenu from '../components/ContextMenu.vue'
@@ -227,6 +230,44 @@ const WB_TEMP_GRADIENT = 'linear-gradient(to right, #4a90e2 0%, #cccccc 50%, #f5
 const WB_TINT_GRADIENT = 'linear-gradient(to right, #e91e63 0%, #cccccc 50%, #4caf50 100%)'
 const presetsData = ref({})
 const presetsDataLoaded = ref(false)
+
+// 直方图叠加层：每次主图加载完成或被 apply 刷新后重算一次。
+// 数据是 [R, G, B, L] 四数组，已由 CLI 用 log + n=100 规约到画布像素，
+// HistogramOverlay 拿到直接画 polyline，不再做缩放。
+//
+// 把目录+文件名透传给 main，由 main 端读最新 .preset.json 决定取哪个
+// 版本（apply 后的 output_dir 或工作目录原图），避免依赖 renderer 这边
+// 可能滞后的 currentImage.path。
+const HISTOGRAM_HEIGHT = 100
+const HISTOGRAM_BINS = 256
+const histogramData = ref(null)
+let histogramRequestSeq = 0
+async function fetchHistogramFor(directoryPath, filename, area) {
+  if (!directoryPath || !filename || !window.require) {
+    histogramData.value = null
+    return
+  }
+  const seq = ++histogramRequestSeq
+  try {
+    const ipcRenderer = window.require('electron').ipcRenderer
+    const result = await ipcRenderer.invoke('compute-histogram', {
+      directoryPath,
+      filename,
+      height: HISTOGRAM_HEIGHT,
+      downsampling: HISTOGRAM_BINS,
+      area: area || null,
+    })
+    // 防止旧请求覆盖新结果（用户快速切图时容易触发）。
+    if (seq === histogramRequestSeq) {
+      histogramData.value = result
+    }
+  } catch (err) {
+    console.error('Failed to compute histogram:', err)
+    if (seq === histogramRequestSeq) {
+      histogramData.value = null
+    }
+  }
+}
 const operationAreaRef = ref(null)
 const operationAreaHeight = ref(80) // 默认值
 
@@ -1400,6 +1441,24 @@ watch(images, () => {
     })
     loadFullResImage()
     loadPresetForCurrentImage()
+  }
+})
+
+// 当前图片的白点取样区。计算成 computed 让它对 areaSelectionsByName
+// 里这一项的增删/改全都触发响应。
+const currentImageArea = computed(() => {
+  if (!currentImage.value) return null
+  return unwrapArea(areaSelectionsByName.value[currentImage.value.name]) || null
+})
+
+// 主图刷新（切图、apply 完成）或白点选区改动时重算直方图。
+// fullResImageUrl 处理图片身份/时间戳变化，currentImageArea 处理选区变化。
+watch([fullResImageUrl, currentImageArea], () => {
+  const filename = currentImage.value?.name
+  if (filename && workingDirectory.value) {
+    fetchHistogramFor(workingDirectory.value, filename, currentImageArea.value)
+  } else {
+    histogramData.value = null
   }
 })
 

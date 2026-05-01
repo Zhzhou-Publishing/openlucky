@@ -1,0 +1,58 @@
+const { ipcMain } = require('electron')
+const { spawn } = require('child_process')
+const { getOpenLuckyPath } = require('../shared/utils')
+
+function register() {
+  ipcMain.on('get-presets', async (event) => {
+    try {
+      const command = getOpenLuckyPath()
+      const args = ['config', 'read', '-f', 'json']
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
+      const child = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      child.stdout.on('data', (data) => {
+        output += data.toString()
+      })
+
+      child.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      child.on('close', (code) => {
+        if (event.sender.isDestroyed()) return
+        if (code === 0) {
+          try {
+            const config = JSON.parse(output)
+            const presets = config.presets ? Object.keys(config.presets).map(key => ({
+              ...config.presets[key],
+              value: key,
+              label: config.presets[key].label || key
+            })) : []
+            event.sender.send('presets-loaded', { presets })
+          } catch (parseError) {
+            event.sender.send('presets-error', { message: 'Failed to parse config', error: parseError.message })
+          }
+        } else {
+          event.sender.send('presets-error', { message: `Process exited with code ${code}`, error: errorOutput })
+        }
+      })
+
+      child.on('error', (err) => {
+        if (event.sender.isDestroyed()) return
+        event.sender.send('presets-error', { message: 'Failed to start process', error: err.message })
+      })
+    } catch (error) {
+      console.error('Error getting presets:', error)
+      event.sender.send('presets-error', { message: 'Error getting presets', error: error.message })
+    }
+  })
+}
+
+module.exports = { register }

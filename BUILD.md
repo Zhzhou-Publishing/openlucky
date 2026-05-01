@@ -47,7 +47,7 @@ Make sure to run this command from the **project root directory** before buildin
 
 ```cmd
 python3 -m PyInstaller --onedir --name openlucky \
---contents-directory cli/lib \
+--contents-directory lib \
 --distpath bin cli/openlucky.py
 ```
 
