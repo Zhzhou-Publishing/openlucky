@@ -140,7 +140,7 @@ onUnmounted(() => {
   top: 50%;
   transform: translateY(-50%);
   height: 4px;
-  background: var(--border-light);
+  background: var(--border-color);
   border-radius: 2px;
 }
 

@@ -108,13 +108,13 @@ onUnmounted(() => {
   --bg-page: #323232;
   --bg-surface: #3c3c3c;
   --bg-surface-hover: #4a4a4a;
-  --bg-input: #3c3c3c;
+  --bg-input: #555555;
   --text-primary: #bdbdbd;
   --text-secondary: #888888;
   --text-tertiary: #666666;
   --text-on-accent: #ffffff;
   --border-color: #4a4a4a;
-  --border-light: #3c3c3c;
+  --border-light: #555555;
   --accent: #42b883;
   --accent-hover: #35a372;
   --btn-save-bg: #42a5f5;

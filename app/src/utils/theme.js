@@ -7,6 +7,11 @@ function applyTheme(name) {
   theme.value = name
   localStorage.setItem(THEME_KEY, name)
   document.documentElement.classList.toggle('dark', name === 'dark')
+  if (window.require) {
+    try {
+      window.require('electron').ipcRenderer.send('set-theme', name)
+    } catch (_) { /* not in Electron */ }
+  }
 }
 
 // 初始化：页面加载时应用已保存的主题

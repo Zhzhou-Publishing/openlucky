@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, shell } = require('electron')
+const { app, BrowserWindow, dialog, nativeTheme, shell } = require('electron')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -26,6 +26,7 @@ const ipcCopyPresetJson = require('./ipc/copy-preset-json')
 const ipcApplyPresetToFile = require('./ipc/apply-preset-to-file')
 const ipcApplyPresetToBatch = require('./ipc/apply-preset-to-batch')
 const ipcResetImage = require('./ipc/reset-image')
+const ipcSetTheme = require('./ipc/set-theme')
 
 // ── Update checker constants ────────────────────────────────────────────────
 const GITHUB_RELEASES_URL = 'https://api.github.com/repos/Zhzhou-Publishing/openlucky/releases?per_page=30'
@@ -481,6 +482,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 1000,
+    show: false,
     autoHideMenuBar: true,
     resizable: true,
     webPreferences: {
@@ -496,6 +498,11 @@ function createWindow() {
   setWin(win)
 
   win.loadFile('dist/index.html')
+
+  win.maximize()
+  win.once('ready-to-show', () => {
+    win.show()
+  })
 
   // Register all IPC handlers once — ipcMain.handle throws on duplicate
   if (!ipcHandlersRegistered) {
@@ -519,6 +526,7 @@ function createWindow() {
     ipcApplyPresetToFile.register()
     ipcApplyPresetToBatch.register()
     ipcResetImage.register()
+    ipcSetTheme.register()
     ipcHandlersRegistered = true
   }
 
@@ -590,6 +598,7 @@ function showRecallDialog(win, latestVersion, latestHtmlUrl) {
 app.disableHardwareAcceleration()
 
 app.whenReady().then(async () => {
+  nativeTheme.themeSource = 'dark'
   initializeConfigFile()
   createWindow()
 
