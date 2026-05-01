@@ -26,6 +26,7 @@ function register() {
       })
 
       child.on('close', (code) => {
+        if (event.sender.isDestroyed()) return
         if (code === 0) {
           try {
             const config = JSON.parse(output)
@@ -44,6 +45,7 @@ function register() {
       })
 
       child.on('error', (err) => {
+        if (event.sender.isDestroyed()) return
         event.sender.send('presets-error', { message: 'Failed to start process', error: err.message })
       })
     } catch (error) {

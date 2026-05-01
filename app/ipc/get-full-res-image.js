@@ -34,9 +34,11 @@ function register() {
         }
       }
 
+      if (event.sender.isDestroyed()) return
       event.sender.send('full-res-image-loaded', { url: imageUrl })
     } catch (error) {
       console.error('Error getting full resolution image:', error)
+      if (event.sender.isDestroyed()) return
       event.sender.send('full-res-image-error', { error: error.message })
     }
   })

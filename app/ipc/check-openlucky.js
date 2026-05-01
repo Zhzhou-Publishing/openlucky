@@ -21,11 +21,13 @@ function register() {
       })
 
       child.on('close', (code) => {
+        if (event.sender.isDestroyed()) return
         const success = code === 0
         event.sender.send('openlucky-checked', { success, error: errorOutput })
       })
 
       child.on('error', (err) => {
+        if (event.sender.isDestroyed()) return
         event.sender.send('openlucky-checked', { success: false, error: err.message })
       })
     } catch (error) {

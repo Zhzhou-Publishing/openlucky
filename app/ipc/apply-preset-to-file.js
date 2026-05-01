@@ -74,6 +74,7 @@ function register() {
 
       child.stdout.on('data', (data) => {
         output += data.toString()
+        if (event.sender.isDestroyed()) return
         event.sender.send('preset-to-file-progress', { data: data.toString() })
       })
 
@@ -82,6 +83,7 @@ function register() {
       })
 
       child.on('close', (code) => {
+        if (event.sender.isDestroyed()) return
         if (code === 0) {
           event.sender.send('preset-to-file-success', { message: 'Preset applied to file successfully' })
         } else {
@@ -90,10 +92,12 @@ function register() {
       })
 
       child.on('error', (err) => {
+        if (event.sender.isDestroyed()) return
         event.sender.send('preset-to-file-error', { message: 'Failed to start process', error: err.message })
       })
     } catch (error) {
       console.error('Error applying preset to file:', error)
+      if (event.sender.isDestroyed()) return
       event.sender.send('preset-to-file-error', { message: 'Error applying preset to file', error: error.message })
     }
   })

@@ -34,6 +34,7 @@ function register() {
 
       child.stdout.on('data', (data) => {
         output += data.toString()
+        if (event.sender.isDestroyed()) return
         event.sender.send('filmparambatch-apply-progress', { data: data.toString() })
       })
 
@@ -42,6 +43,7 @@ function register() {
       })
 
       child.on('close', (code) => {
+        if (event.sender.isDestroyed()) return
         if (code === 0) {
           event.sender.send('filmparambatch-apply-success', { message: 'Batch processing completed successfully' })
         } else {
@@ -50,6 +52,7 @@ function register() {
       })
 
       child.on('error', (err) => {
+        if (event.sender.isDestroyed()) return
         event.sender.send('filmparambatch-apply-error', { message: 'Failed to start process', error: err.message })
       })
     } catch (error) {

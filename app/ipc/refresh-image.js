@@ -14,9 +14,11 @@ function register() {
         tempDirObj.name,
         Date.now()
       )
+      if (event.sender.isDestroyed()) return
       event.sender.send('image-refreshed', { filename, entry })
     } catch (error) {
       console.error('Error refreshing image:', error)
+      if (event.sender.isDestroyed()) return
       event.sender.send('image-refresh-error', { filename, error: error.message })
     }
   })

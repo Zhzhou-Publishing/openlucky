@@ -3,6 +3,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const https = require('https')
+const { setWin } = require('./shared/main-window')
 
 // ── IPC handlers (one per file) ──────────────────────────────────────────────
 const ipcConfirmClose = require('./ipc/confirm-close')
@@ -473,6 +474,8 @@ function initializeConfigFile() {
 }
 
 // ── Window creation ─────────────────────────────────────────────────────────
+let ipcHandlersRegistered = false
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -489,28 +492,36 @@ function createWindow() {
     }
   })
 
+  setWin(win)
+
   win.loadFile('dist/index.html')
 
-  // Register all IPC handlers — pass `win` where needed
-  ipcConfirmClose.register(win)
-  ipcCheckOpenlucky.register()
-  ipcSelectDirectory.register(win)
-  ipcOpenExternal.register()
-  ipcGetImages.register(win)
-  ipcGetPresets.register()
-  ipcPrepareWorkingDir.register()
-  ipcPrepareWorkingDirFromSelected.register()
-  ipcGetFullResImage.register()
-  ipcReadPresetJson.register()
-  ipcRefreshImage.register()
-  ipcApplyPreset.register()
-  ipcApplyFilmparam.register()
-  ipcPickColor.register()
-  ipcComputeHistogram.register()
-  ipcApplyFilmparambatch.register()
-  ipcCopyPresetJson.register()
-  ipcApplyPresetToFile.register()
-  ipcApplyPresetToBatch.register()
+  // Register all IPC handlers once — ipcMain.handle throws on duplicate
+  if (!ipcHandlersRegistered) {
+    ipcConfirmClose.register()
+    ipcCheckOpenlucky.register()
+    ipcSelectDirectory.register()
+    ipcOpenExternal.register()
+    ipcGetImages.register()
+    ipcGetPresets.register()
+    ipcPrepareWorkingDir.register()
+    ipcPrepareWorkingDirFromSelected.register()
+    ipcGetFullResImage.register()
+    ipcReadPresetJson.register()
+    ipcRefreshImage.register()
+    ipcApplyPreset.register()
+    ipcApplyFilmparam.register()
+    ipcPickColor.register()
+    ipcComputeHistogram.register()
+    ipcApplyFilmparambatch.register()
+    ipcCopyPresetJson.register()
+    ipcApplyPresetToFile.register()
+    ipcApplyPresetToBatch.register()
+    ipcHandlersRegistered = true
+  }
+
+  // Per-window: confirm-close needs fresh event listeners on each window
+  ipcConfirmClose.setupWindow(win)
 
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     win.webContents.openDevTools()

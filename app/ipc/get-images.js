@@ -2,6 +2,7 @@ const { ipcMain } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const tmp = require('tmp')
+const { getWin } = require('../shared/main-window')
 const {
   IMAGE_EXTENSIONS,
   RAW_EXTENSIONS,
@@ -10,7 +11,7 @@ const {
   buildThumbnailEntry
 } = require('../shared/utils')
 
-function register(win) {
+function register() {
   ipcMain.on('get-images', async (_, directoryPath) => {
     try {
       const files = fs.readdirSync(directoryPath)
@@ -31,10 +32,16 @@ function register(win) {
         allImageFiles.map(file => buildThumbnailEntry(directoryPath, file, presets, tempDir, timestamp))
       )
 
-      win.webContents.send('images-loaded', { images })
+      const win = getWin()
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('images-loaded', { images })
+      }
     } catch (error) {
       console.error('Error loading images:', error)
-      win.webContents.send('images-error', error.message)
+      const win = getWin()
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('images-error', error.message)
+      }
     }
   })
 }

@@ -103,11 +103,13 @@ function register() {
           }
           console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
-          event.sender.send('preset-to-batch-progress', {
-            file: file,
-            progress: `${processedCount + 1}/${totalCount}`,
-            data: `Processing ${file}`
-          })
+          if (!event.sender.isDestroyed()) {
+            event.sender.send('preset-to-batch-progress', {
+              file: file,
+              progress: `${processedCount + 1}/${totalCount}`,
+              data: `Processing ${file}`
+            })
+          }
 
           await new Promise((resolve) => {
             const child = spawn(command, args, {
@@ -132,9 +134,11 @@ function register() {
         }
       }
 
+      if (event.sender.isDestroyed()) return
       event.sender.send('preset-to-batch-success', { message: `Batch processing completed. Processed ${processedCount}/${totalCount} files.` })
     } catch (error) {
       console.error('Error applying preset to batch:', error)
+      if (event.sender.isDestroyed()) return
       event.sender.send('preset-to-batch-error', { message: 'Error applying preset to batch', error: error.message })
     }
   })

@@ -37,6 +37,7 @@ function register() {
 
       child.stdout.on('data', (data) => {
         output += data.toString()
+        if (event.sender.isDestroyed()) return
         event.sender.send('filmparam-apply-progress', { data: data.toString() })
       })
 
@@ -45,6 +46,7 @@ function register() {
       })
 
       child.on('close', (code) => {
+        if (event.sender.isDestroyed()) return
         if (code === 0) {
           event.sender.send('filmparam-apply-success', { message: 'Film processing completed successfully', outputFile })
         } else {
@@ -53,6 +55,7 @@ function register() {
       })
 
       child.on('error', (err) => {
+        if (event.sender.isDestroyed()) return
         event.sender.send('filmparam-apply-error', { message: 'Failed to start process', error: err.message })
       })
     } catch (error) {

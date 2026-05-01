@@ -1,16 +1,23 @@
 const { ipcMain } = require('electron')
+const { getWin } = require('../shared/main-window')
 
-function register(win) {
-  let allowClose = false
+let allowClose = false
 
-  const onConfirmCloseResponse = (_, allow) => {
+function register() {
+  ipcMain.on('confirm-close-response', (_, allow) => {
     if (allow) {
       allowClose = true
-      if (!win.isDestroyed()) {
+      const win = getWin()
+      if (win && !win.isDestroyed()) {
         win.close()
       }
     }
-  }
+  })
+}
+
+// Per-window: must be called for each new BrowserWindow
+function setupWindow(win) {
+  allowClose = false
 
   win.on('close', (e) => {
     if (allowClose) return
@@ -19,12 +26,6 @@ function register(win) {
       win.webContents.send('confirm-close')
     }
   })
-
-  ipcMain.on('confirm-close-response', onConfirmCloseResponse)
-
-  win.on('closed', () => {
-    ipcMain.removeListener('confirm-close-response', onConfirmCloseResponse)
-  })
 }
 
-module.exports = { register }
+module.exports = { register, setupWindow }

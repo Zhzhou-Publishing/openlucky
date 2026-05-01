@@ -40,8 +40,10 @@ function register() {
 
         startedCount += 1
         const progress = `[${startedCount}/${totalImages}] ${srcPath}`
-        event.sender.send('processing-progress-update', { progress })
-        event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${progress}` })
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('processing-progress-update', { progress })
+          event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${progress}` })
+        }
 
         if (await needsResize(srcPath)) {
           const result = await resizeImage(srcPath, destPath)
@@ -76,14 +78,18 @@ function register() {
         fs.mkdirSync(outputDirectory, { recursive: true })
       }
 
-      event.sender.send('processing-progress-clear', {})
-      event.sender.send('window-title-restore', {})
-      event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('processing-progress-clear', {})
+        event.sender.send('window-title-restore', {})
+        event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
+      }
     } catch (error) {
       console.error('Error preparing working directory:', error)
-      event.sender.send('processing-progress-clear', {})
-      event.sender.send('window-title-restore', {})
-      event.sender.send('working-directory-from-selected-error', { error: error.message })
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('processing-progress-clear', {})
+        event.sender.send('window-title-restore', {})
+        event.sender.send('working-directory-from-selected-error', { error: error.message })
+      }
     }
   })
 }
