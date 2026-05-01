@@ -1,0 +1,62 @@
+const { ipcMain } = require('electron')
+const path = require('path')
+const { spawn } = require('child_process')
+const { getOpenLuckyPath } = require('../shared/utils')
+
+function register() {
+  ipcMain.on('apply-filmparambatch', async (event, { inputPath, outputPath, params, rotateClockwise = 0, area = null, areaBasis = null, exposure = null, whiteBalance = null }) => {
+    try {
+      const command = getOpenLuckyPath()
+      const args = ['filmparambatch', '--input', inputPath, '--output', outputPath, '--param', params, '--rotate-clockwise', rotateClockwise.toString()]
+      if (area && Number.isInteger(area.x1) && Number.isInteger(area.y1) && Number.isInteger(area.x2) && Number.isInteger(area.y2)) {
+        args.push('--area', `${area.x1},${area.y1},${area.x2},${area.y2}`)
+        if (areaBasis && Number.isInteger(areaBasis.w) && Number.isInteger(areaBasis.h) && areaBasis.w > 0 && areaBasis.h > 0) {
+          args.push('--area-basis', `${areaBasis.w},${areaBasis.h}`)
+        }
+      }
+      if (typeof exposure === 'number' && Number.isFinite(exposure)) {
+        args.push('--exposure', exposure.toString())
+      }
+      if (typeof whiteBalance === 'string' && whiteBalance.length > 0) {
+        args.push('--white-balance', whiteBalance)
+      }
+      console.log(`[openlucky] Executing: ${command} ${args.join(' ')}`)
+
+      event.sender.send('filmparambatch-apply-started', { message: 'Batch processing started' })
+
+      const child = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      child.stdout.on('data', (data) => {
+        output += data.toString()
+        event.sender.send('filmparambatch-apply-progress', { data: data.toString() })
+      })
+
+      child.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          event.sender.send('filmparambatch-apply-success', { message: 'Batch processing completed successfully' })
+        } else {
+          event.sender.send('filmparambatch-apply-error', { message: `Process exited with code ${code}`, error: errorOutput })
+        }
+      })
+
+      child.on('error', (err) => {
+        event.sender.send('filmparambatch-apply-error', { message: 'Failed to start process', error: err.message })
+      })
+    } catch (error) {
+      console.error('Error applying filmparambatch:', error)
+      event.sender.send('filmparambatch-apply-error', { message: 'Error applying batch film parameters', error: error.message })
+    }
+  })
+}
+
+module.exports = { register }
