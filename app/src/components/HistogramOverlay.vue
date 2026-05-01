@@ -13,11 +13,14 @@
       :viewBox="`0 0 ${width} ${height}`"
       preserveAspectRatio="none"
     >
-      <polyline v-if="paths.r" :points="paths.r" class="ch ch-r" />
-      <polyline v-if="paths.g" :points="paths.g" class="ch ch-g" />
-      <polyline v-if="paths.b" :points="paths.b" class="ch ch-b" />
-      <polyline v-if="paths.l" :points="paths.l" class="ch ch-l" />
+      <polyline v-if="!loading && paths.r" :points="paths.r" class="ch ch-r" />
+      <polyline v-if="!loading && paths.g" :points="paths.g" class="ch ch-g" />
+      <polyline v-if="!loading && paths.b" :points="paths.b" class="ch ch-b" />
+      <polyline v-if="!loading && paths.l" :points="paths.l" class="ch ch-l" />
     </svg>
+    <div v-if="loading" class="histogram-loading">
+      <div class="histogram-spinner"></div>
+    </div>
   </div>
 </template>
 
@@ -33,6 +36,7 @@ const props = defineProps({
   height: { type: Number, default: 100 },
   initialX: { type: Number, default: 120 },
   initialY: { type: Number, default: 80 },
+  loading: { type: Boolean, default: false },
 })
 
 const x = ref(props.initialX)
@@ -149,5 +153,36 @@ onUnmounted(() => {
 
 .ch-l {
   stroke: rgba(255, 255, 255, 0.9);
+}
+
+.histogram-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+}
+
+.histogram-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid #fff;
+  border-radius: 50%;
+  animation: hist-spin 1s linear infinite;
+}
+
+@keyframes hist-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

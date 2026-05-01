@@ -154,7 +154,7 @@
       </div>
     </div>
 
-    <HistogramOverlay v-if="histogramData" :histogram="histogramData" />
+    <HistogramOverlay v-if="showHistogram" :histogram="histogramData" :loading="isHistogramLoading" />
 
     <ContextMenu v-model="ctxMenuVisible" :items="ctxMenuItems" :position="ctxMenuPos" />
 
@@ -230,6 +230,8 @@ const WB_TEMP_GRADIENT = 'linear-gradient(to right, #4a90e2 0%, #cccccc 50%, #f5
 const WB_TINT_GRADIENT = 'linear-gradient(to right, #e91e63 0%, #cccccc 50%, #4caf50 100%)'
 const presetsData = ref({})
 const presetsDataLoaded = ref(false)
+// 旋转操作：先发 IPC，成功后再旋转选区坐标，避免 IPC 失败时选区被错误旋转
+const pendingRotation = ref(null) // null | { imageName: string, direction: 'cw' | 'ccw' }
 
 // 直方图叠加层：每次主图加载完成或被 apply 刷新后重算一次。
 // 数据是 [R, G, B, L] 四数组，已由 CLI 用 log + n=100 规约到画布像素，
@@ -692,6 +694,21 @@ const hasUnappliedImages = computed(() => {
   return images.value.some(img => !presetsData.value || !presetsData.value[img.name])
 })
 
+const isCurrentImageApplied = computed(() => {
+  if (!currentFileName.value || !presetsData.value) return false
+  return !!presetsData.value[currentFileName.value]
+})
+
+const showHistogram = computed(() => {
+  if (!isCurrentImageApplied.value && !isCurrentImageAffected.value) return false
+  if (isCurrentImageAffected.value) return true
+  return !!histogramData.value
+})
+
+const isHistogramLoading = computed(() => {
+  return isCurrentImageAffected.value
+})
+
 const currentDirectoryName = computed(() => {
   if (originalDirectory.value) {
     const parts = originalDirectory.value.split(/[/\\]/)
@@ -759,7 +776,7 @@ const rotateClockwiseBtn = () => {
   let newAngle = (currentAngle + 90) % 360
   if (newAngle === 360) newAngle = 0
   rotateClockwiseMap.value[imageName] = newAngle
-  rotateStoredAreaSelection(imageName, 'cw')
+  pendingRotation.value = { imageName, direction: 'cw' }
   applyPreview()
 }
 
@@ -770,7 +787,7 @@ const rotateCounterClockwiseBtn = () => {
   let newAngle = currentAngle - 90
   if (newAngle < 0) newAngle = newAngle + 360
   rotateClockwiseMap.value[imageName] = newAngle
-  rotateStoredAreaSelection(imageName, 'ccw')
+  pendingRotation.value = { imageName, direction: 'ccw' }
   applyPreview()
 }
 
@@ -1042,6 +1059,12 @@ const applyPreview = () => {
         loadPresets();
         affectedImages.delete(imageName);
 
+        // 旋转操作：IPC 成功后旋转白点选区坐标
+        if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
+          rotateStoredAreaSelection(imageName, pendingRotation.value.direction)
+          pendingRotation.value = null
+        }
+
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
       }
@@ -1055,6 +1078,10 @@ const applyPreview = () => {
       const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
       if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
         affectedImages.delete(imageName);
+        // IPC 失败时清除待旋转标记，避免选区被错误旋转
+        if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
+          pendingRotation.value = null
+        }
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-error', handleError);
       }
@@ -1062,6 +1089,7 @@ const applyPreview = () => {
     ipcRenderer.on('filmparam-apply-error', handleError);
   } catch (error) {
     affectedImages.delete(imageName);
+    pendingRotation.value = null;
   }
 }
 
