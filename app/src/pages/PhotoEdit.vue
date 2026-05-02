@@ -925,7 +925,7 @@ const rotateClockwiseBtn = () => {
   if (newAngle === 360) newAngle = 0
   rotateClockwiseMap.value[imageName] = newAngle
   pendingRotation.value = { imageName, direction: 'cw' }
-  applyPreview()
+  apply()
 }
 
 const rotateCounterClockwiseBtn = () => {
@@ -936,7 +936,7 @@ const rotateCounterClockwiseBtn = () => {
   if (newAngle < 0) newAngle = newAngle + 360
   rotateClockwiseMap.value[imageName] = newAngle
   pendingRotation.value = { imageName, direction: 'ccw' }
-  applyPreview()
+  apply()
 }
 
 const rotate180Btn = () => {
@@ -946,7 +946,7 @@ const rotate180Btn = () => {
   const newAngle = (currentAngle + 180) % 360
   rotateClockwiseMap.value[imageName] = newAngle
   pendingRotation.value = { imageName, direction: '180' }
-  applyPreview()
+  apply()
 }
 
 // Helper function to trigger Vue reactivity for images array
@@ -1170,7 +1170,6 @@ const apply = () => {
   }
 }
 
-const applyPreview = () => apply()
 
 const applyAll = () => {
   if (!workingDirectory.value) {
