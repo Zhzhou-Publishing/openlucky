@@ -13,7 +13,10 @@ export default {
     selectButton: '📁 Выбрать каталог',
     loading: 'Загрузка...',
     selectedPath: 'Выбранный путь:',
-    processingProgress: 'Подготовка предпросмотра'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: 'Cancel',
   },
   photoGallery: {
     back: '← Назад',
@@ -63,6 +66,7 @@ export default {
       rotate: 'Поворот',
       rotateClockwise: 'По часовой 90°',
       rotateCounterClockwise: 'Против часовой 90°',
+      rotate180: 'Поворот 180°',
       resetImage: 'Reset Image',
     },
     eyedropper: {

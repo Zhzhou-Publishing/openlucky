@@ -13,10 +13,21 @@ const {
 } = require('../shared/utils')
 
 function register() {
-  ipcMain.on('prepare-working-directory-from-selected', async (event, directoryPath) => {
+  ipcMain.on('prepare-working-directory-from-selected', async (event, directoryPath, options = {}) => {
+    let cancelled = false
+
+    const onCancel = () => {
+      cancelled = true
+    }
+    ipcMain.once('cancel-processing', onCancel)
+
+    let workingDirectory = ''
     try {
+      const compressPreview = options.compressPreview === true
+      const resizeOptions = compressPreview ? { value: 1920 } : {}
+
       const workingDirObj = tmp.dirSync({ prefix: 'openlucky_working_', unsafeCleanup: true })
-      const workingDirectory = workingDirObj.name
+      workingDirectory = workingDirObj.name
 
       const concurrencyLimit = Math.max(1, Math.floor(os.cpus().length / 2))
       const limit = pLimit(concurrencyLimit)
@@ -45,8 +56,15 @@ function register() {
           event.sender.send('window-title-update', { title: `OpenLucky Desktop App - ${progress}` })
         }
 
+        if (cancelled) {
+          console.log('Processing cancelled by user')
+          // throwing skips subsequent images via limit's error path,
+          // but Promise.all will still wait for already-running tasks.
+          throw new Error('CANCELLED')
+        }
+
         if (await needsResize(srcPath)) {
-          const result = await resizeImage(srcPath, destPath)
+          const result = await resizeImage(srcPath, destPath, resizeOptions)
           if (result.success) {
             console.log('Image processed (resized):', file)
             return { success: true, file }
@@ -66,6 +84,10 @@ function register() {
         }
       }))
 
+      if (cancelled) {
+        throw new Error('CANCELLED')
+      }
+
       await Promise.all(imageProcessings)
 
       const presetJsonPath = path.join(directoryPath, '.preset.json')
@@ -84,6 +106,16 @@ function register() {
         event.sender.send('working-directory-from-selected-prepared', { workingDirectory, outputDirectory, originalDirectory: directoryPath })
       }
     } catch (error) {
+      ipcMain.removeListener('cancel-processing', onCancel)
+      if (error.message === 'CANCELLED') {
+        console.log('Processing cancelled by user, cleaning up temp directory')
+        try { fs.rmSync(workingDirectory, { recursive: true, force: true }) } catch (_) {}
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('processing-progress-clear', {})
+          event.sender.send('window-title-restore', {})
+        }
+        return
+      }
       console.error('Error preparing working directory:', error)
       if (!event.sender.isDestroyed()) {
         event.sender.send('processing-progress-clear', {})

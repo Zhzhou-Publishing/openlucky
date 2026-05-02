@@ -13,7 +13,10 @@ export default {
     selectButton: '📁 Wybierz katalog',
     loading: 'Ładowanie...',
     selectedPath: 'Wybrana ścieżka:',
-    processingProgress: 'Przygotowywanie podglądu'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: 'Cancel',
   },
   photoGallery: {
     back: '← Wstecz',
@@ -63,6 +66,7 @@ export default {
       rotate: 'Obróć',
       rotateClockwise: 'Zgodnie z ruchem wskazówek zegara 90°',
       rotateCounterClockwise: 'Przeciwnie do ruchu wskazówek zegara 90°',
+      rotate180: 'Obróć o 180°',
       resetImage: 'Reset Image',
     },
     eyedropper: {

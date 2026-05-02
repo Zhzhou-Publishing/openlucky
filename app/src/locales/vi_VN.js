@@ -13,7 +13,10 @@ export default {
     selectButton: '📁 Chọn thư mục',
     loading: 'Đang tải...',
     selectedPath: 'Đường dẫn đã chọn:',
-    processingProgress: 'Đang chuẩn bị xem trước'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: 'Cancel',
   },
   photoGallery: {
     back: '← Quay lại',
@@ -63,6 +66,7 @@ export default {
       rotate: 'Xoay',
       rotateClockwise: 'Theo chiều kim đồng hồ 90°',
       rotateCounterClockwise: 'Ngược chiều kim đồng hồ 90°',
+      rotate180: 'Xoay 180°',
       resetImage: 'Reset Image',
     },
     eyedropper: {

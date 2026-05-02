@@ -13,7 +13,10 @@ export default {
     selectButton: '📁 निर्देशिका चुनें',
     loading: 'लोड हो रहा है...',
     selectedPath: 'चयनित पथ:',
-    processingProgress: 'पूर्वावलोकन तैयार किया जा रहा है'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: 'Cancel',
   },
   photoGallery: {
     back: '← वापस',
@@ -63,6 +66,7 @@ export default {
       rotate: 'घुमाएं',
       rotateClockwise: 'दक्षिणावर्त 90°',
       rotateCounterClockwise: 'वामावर्त 90°',
+      rotate180: '180° घुमाएं',
       resetImage: 'Reset Image',
     },
     eyedropper: {

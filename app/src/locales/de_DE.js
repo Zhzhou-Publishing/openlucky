@@ -13,7 +13,10 @@ export default {
     selectButton: '📁 Verzeichnis auswählen',
     loading: 'Wird geladen...',
     selectedPath: 'Ausgewählter Pfad:',
-    processingProgress: 'Vorschau wird vorbereitet'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: 'Cancel',
   },
   photoGallery: {
     back: '← Zurück',
@@ -63,6 +66,7 @@ export default {
       rotate: 'Drehen',
       rotateClockwise: 'Im Uhrzeigersinn 90°',
       rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°',
+      rotate180: '180° drehen',
       resetImage: 'Reset Image',
     },
     eyedropper: {

@@ -13,7 +13,10 @@ export default {
     selectButton: '📁 選擇目錄',
     loading: '載入中...',
     selectedPath: '已選擇路徑：',
-    processingProgress: '正在準備預覽'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: '取消'
   },
   photoGallery: {
     back: '← 返回',
@@ -63,6 +66,7 @@ export default {
       rotate: '旋轉',
       rotateClockwise: '順時針 90°',
       rotateCounterClockwise: '逆時針 90°',
+      rotate180: '旋轉 180°',
       resetImage: '重置圖片',
     },
     eyedropper: {

@@ -13,7 +13,10 @@ export default {
     selectButton: '📁 場所を選択',
     loading: '読み込み中...',
     selectedPath: '選択された場所：',
-    processingProgress: 'プレビューを準備中'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: 'Cancel',
   },
   photoGallery: {
     back: '← 戻る',
@@ -63,6 +66,7 @@ export default {
       rotate: '回転',
       rotateClockwise: '時計回り 90°',
       rotateCounterClockwise: '反時計回り 90°',
+      rotate180: '180° 回転',
       resetImage: 'Reset Image',
     },
     eyedropper: {

@@ -38,15 +38,22 @@
         <div class="image-display"
              :class="{ 'eyedropper-active': eyedropperActive, 'area-select-active': areaSelectActive }"
              :style="{ height: imageDisplayHeight }"
+             @wheel="onImageDisplayWheel"
              @contextmenu.prevent="onContextMenu">
-          <div class="image-wrapper" @mouseenter="onWrapperEnter" @mouseleave="onWrapperLeave">
+          <div class="image-wrapper"
+               :style="imageWrapperStyle"
+               @mouseenter="onWrapperEnter"
+               @mouseleave="onWrapperLeave"
+               @mousedown="onWrapperMouseDown">
             <img v-if="fullResImageUrl"
                  ref="mainImgRef"
                  :src="fullResImageUrl"
                  :alt="currentImage.name"
                  class="main-image"
+                 :style="{ cursor: mainImageCursor }"
                  @click="onImageClick"
                  @mousedown="onMainImageMouseDown"
+                 @dblclick="onImageDblClick"
                  @load="onMainImageLoad" />
             <!-- 框选模式：未拖拽时整张图被半透明灰色遮罩覆盖 -->
             <div v-if="areaSelectActive && !liveSelectionDisplayRect" class="area-mask-full"></div>
@@ -74,31 +81,31 @@
             <div v-if="activeTab === 'basic'" class="tab-content">
               <NumberInput :label="$t('photoEdit.maskR')" v-model="input1" :max="255" :min="0" increase-key="Q"
                 decrease-key="A" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
               <NumberInput :label="$t('photoEdit.maskG')" v-model="input2" :max="255" :min="0" increase-key="W"
                 decrease-key="S" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
               <NumberInput :label="$t('photoEdit.maskB')" v-model="input3" :max="255" :min="0" increase-key="E"
                 decrease-key="D" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
               <NumberInput :label="$t('photoEdit.gamma')" v-model="input4" :max="5" :min="0.01" increase-key="R"
                 decrease-key="F" :step-value="0.01" :large-step-value="0.1" large-step-increase-key="Alt + Shift + R"
                 large-step-decrease-key="Alt + Shift + F" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
               <NumberInput :label="$t('photoEdit.contrast')" v-model="input5" :max="2" :min="0.5" increase-key="T"
                 decrease-key="G" :step-value="0.01" :large-step-value="0.05" large-step-increase-key="Alt + Shift + T"
                 large-step-decrease-key="Alt + Shift + G" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
             </div>
 
             <!-- Advanced Parameters Tab -->
             <div v-if="activeTab === 'dye_concentration_correction'" class="tab-content">
               <NumberInput :label="$t('photoEdit.contrastR')" v-model="contrastR" :max="2" :min="0.5" :step-value="0.01"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+                :disabled="isAllImagesAffected || isCurrentImageAffected" />
               <NumberInput :label="$t('photoEdit.contrastG')" v-model="contrastG" :max="2" :min="0.5" :step-value="0.01"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+                :disabled="isAllImagesAffected || isCurrentImageAffected" />
               <NumberInput :label="$t('photoEdit.contrastB')" v-model="contrastB" :max="2" :min="0.5" :step-value="0.01"
-                :disabled="isAllImagesAffected || isCurrentImageAffected" @keydown="handleInputKeydown" />
+                :disabled="isAllImagesAffected || isCurrentImageAffected" />
             </div>
 
             <!-- Exposure Tab -->
@@ -109,7 +116,7 @@
               </div>
               <NumberInput :label="$t('photoEdit.exposureTab')" v-model="exposure" :max="3.0" :min="-3.0"
                 :step-value="0.1" :disabled="isAllImagesAffected || isCurrentImageAffected"
-                @keydown="handleInputKeydown" />
+                />
             </div>
 
             <!-- White Balance Tab -->
@@ -127,7 +134,7 @@
                     :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected" />
                   <NumberInput v-model="whiteBalanceTemp" :max="50" :min="-50" :step-value="1"
                     :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected"
-                    @keydown="handleInputKeydown" />
+                    />
                 </div>
                 <div class="wb-row">
                   <Slider class="wb-row-slider" :label="$t('photoEdit.whiteBalanceTint')"
@@ -136,14 +143,14 @@
                     :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected" />
                   <NumberInput v-model="whiteBalanceTint" :max="50" :min="-50" :step-value="1"
                     :disabled="whiteBalanceAuto || isAllImagesAffected || isCurrentImageAffected"
-                    @keydown="handleInputKeydown" />
+                    />
                 </div>
               </div>
             </div>
 
             <!-- Common Action Buttons -->
             <div class="action-buttons">
-              <button @click="apply" class="apply-button" title="Enter" style="display: none;"
+              <button @click="apply" class="apply-button" title="Enter"
                 :disabled="isAllImagesAffected || isCurrentImageAffected">{{ $t('photoEdit.apply') }}</button>
               <button @click="applyAll" class="apply-all-button" title="CTRL + Enter" :disabled="isAllImagesAffected">{{
                 $t('photoEdit.applyAll') }}</button>
@@ -189,18 +196,6 @@ import { presets as globalPresets } from '../utils/presetCache'
 
 // Get path module for Electron environment
 const path = window.require ? window.require('path') : { basename: (p) => p }
-
-// Debounce utility function
-function debounce(fn, delay) {
-  let timer = null
-  return function (...args) {
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(() => {
-      fn.apply(this, args)
-      timer = null
-    }, delay)
-  }
-}
 
 const router = useRouter()
 const route = useRoute()
@@ -348,6 +343,14 @@ const hoveringImage = ref(false)
 const mainImgRef = ref(null)
 const currentImageNaturalDims = ref(null)
 const areaSelectionsByName = ref({})
+
+// Zoom & pan state
+const zoomLevel = ref(1)
+const panOffsetX = ref(0)
+const panOffsetY = ref(0)
+const isPanning = ref(false)
+const panStartMouse = ref({ x: 0, y: 0 })
+const panStartOffset = ref({ x: 0, y: 0 })
 
 const AREA_SESSION_STORAGE_KEY = 'photoEditAreaSelections'
 
@@ -690,7 +693,8 @@ const ctxMenuItems = computed(() => {
       disabled: busy,
       children: [
         { label: t('photoEdit.contextMenu.rotateClockwise'), action: rotateClockwiseBtn, disabled: busy },
-        { label: t('photoEdit.contextMenu.rotateCounterClockwise'), action: rotateCounterClockwiseBtn, disabled: busy }
+        { label: t('photoEdit.contextMenu.rotateCounterClockwise'), action: rotateCounterClockwiseBtn, disabled: busy },
+        { label: t('photoEdit.contextMenu.rotate180'), action: rotate180Btn, disabled: busy }
       ]
     },
     { type: 'separator' },
@@ -793,6 +797,83 @@ const handleTabChange = (tabId) => {
   // 高度变化由 ResizeObserver 自动捕获，这里无需手动触发
 }
 
+// Zoom & pan ──────────────────────────────────────────────────────────
+
+const imageWrapperStyle = computed(() => ({
+  transform: `translate(${panOffsetX.value}px, ${panOffsetY.value}px) scale(${zoomLevel.value})`,
+  transformOrigin: 'center center',
+}))
+
+const mainImageCursor = computed(() => {
+  if (eyedropperActive.value || areaSelectActive.value) return undefined
+  if (zoomLevel.value > 1) return isPanning.value ? 'grabbing' : 'grab'
+  return undefined
+})
+
+function onImageDisplayWheel(e) {
+  if (!e.ctrlKey && !e.metaKey) return
+  if (areaSelectActive.value || eyedropperActive.value) return
+  e.preventDefault()
+
+  const display = e.currentTarget
+  const rect = display.getBoundingClientRect()
+  const mx = e.clientX - rect.left - rect.width / 2
+  const my = e.clientY - rect.top - rect.height / 2
+
+  const delta = -e.deltaY * 0.005
+  const newZoom = Math.max(0.5, Math.min(5, zoomLevel.value * (1 + delta)))
+
+  const ratio = newZoom / zoomLevel.value
+  panOffsetX.value = mx - (mx - panOffsetX.value) * ratio
+  panOffsetY.value = my - (my - panOffsetY.value) * ratio
+  zoomLevel.value = newZoom
+}
+
+function onWrapperMouseDown(e) {
+  if (e.button !== 0) return
+  if (eyedropperActive.value || areaSelectActive.value) return
+  if (zoomLevel.value <= 1) return
+  e.preventDefault()
+  e.stopPropagation()
+  isPanning.value = true
+  panStartMouse.value = { x: e.clientX, y: e.clientY }
+  panStartOffset.value = { x: panOffsetX.value, y: panOffsetY.value }
+  window.addEventListener('mousemove', onPanMouseMove)
+  window.addEventListener('mouseup', onPanMouseUp)
+}
+
+function onPanMouseMove(e) {
+  if (!isPanning.value) return
+  panOffsetX.value = panStartOffset.value.x + (e.clientX - panStartMouse.value.x)
+  panOffsetY.value = panStartOffset.value.y + (e.clientY - panStartMouse.value.y)
+}
+
+function onPanMouseUp() {
+  isPanning.value = false
+  window.removeEventListener('mousemove', onPanMouseMove)
+  window.removeEventListener('mouseup', onPanMouseUp)
+}
+
+function resetZoom() {
+  zoomLevel.value = 1
+  panOffsetX.value = 0
+  panOffsetY.value = 0
+}
+
+function onImageDblClick() {
+  if (eyedropperActive.value || areaSelectActive.value) return
+  if (zoomLevel.value === 1) {
+    // Zoom to 2x centered on the click point — reset (already at 1x) is a no-op,
+    // but dblclick still shouldn't interfere with eyedropper / area-select.
+    // For simplicity, just center-zoom to 2x.
+    zoomLevel.value = 2
+    panOffsetX.value = 0
+    panOffsetY.value = 0
+  } else {
+    resetZoom()
+  }
+}
+
 let operationAreaResizeObserver = null
 
 const goBack = () => {
@@ -807,6 +888,7 @@ const goBack = () => {
 
 const selectImage = (index) => {
   currentIndex.value = index
+  resetZoom()
 }
 
 // 旋转已存白点采样区，使其在新方向的图像坐标系中跟随同一块画面内容。
@@ -818,15 +900,20 @@ function rotateStoredAreaSelection(imageName, direction) {
   if (!dims || !dims.w || !dims.h) return
   const { w, h } = dims
   const { x1, y1, x2, y2 } = stored
-  const rotated = direction === 'cw'
-    ? { x1: h - y2, y1: x1, x2: h - y1, y2: x2 }
-    : { x1: y1, y1: w - x2, x2: y2, y2: w - x1 }
+  let rotated
+  if (direction === '180') {
+    rotated = { x1: w - x2, y1: h - y2, x2: w - x1, y2: h - y1 }
+  } else if (direction === 'cw') {
+    rotated = { x1: h - y2, y1: x1, x2: h - y1, y2: x2 }
+    currentImageNaturalDims.value = { w: h, h: w }
+  } else {
+    rotated = { x1: y1, y1: w - x2, x2: y2, y2: w - x1 }
+    currentImageNaturalDims.value = { w: h, h: w }
+  }
   areaSelectionsByName.value = {
     ...areaSelectionsByName.value,
     [imageName]: rotated,
   }
-  // 当前显示的自然尺寸也跟着转 90°，新加载的图回来前先把 ROI 预览框对齐
-  currentImageNaturalDims.value = { w: h, h: w }
   persistAreaSelections()
 }
 
@@ -838,7 +925,7 @@ const rotateClockwiseBtn = () => {
   if (newAngle === 360) newAngle = 0
   rotateClockwiseMap.value[imageName] = newAngle
   pendingRotation.value = { imageName, direction: 'cw' }
-  applyPreview()
+  apply()
 }
 
 const rotateCounterClockwiseBtn = () => {
@@ -849,7 +936,17 @@ const rotateCounterClockwiseBtn = () => {
   if (newAngle < 0) newAngle = newAngle + 360
   rotateClockwiseMap.value[imageName] = newAngle
   pendingRotation.value = { imageName, direction: 'ccw' }
-  applyPreview()
+  apply()
+}
+
+const rotate180Btn = () => {
+  if (!currentImage.value) return
+  const imageName = currentImage.value.name
+  const currentAngle = rotateClockwiseMap.value[imageName] || 0
+  const newAngle = (currentAngle + 180) % 360
+  rotateClockwiseMap.value[imageName] = newAngle
+  pendingRotation.value = { imageName, direction: '180' }
+  apply()
 }
 
 // Helper function to trigger Vue reactivity for images array
@@ -1026,12 +1123,24 @@ const apply = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        pendingApplyImage.value = imageName
-        clearHistogramCache();
-        refreshImage(imageName);
-        loadFullResImage();
-        loadPresets();
         affectedImages.delete(imageName);
+
+        // 旋转操作：IPC 成功后旋转白点选区坐标
+        if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
+          rotateStoredAreaSelection(imageName, pendingRotation.value.direction)
+          pendingRotation.value = null
+        }
+
+        // 始终刷新缩略图和 presetsData（用户可能已切走），只有当前展示的图片才刷新主图和直方图
+        refreshImage(imageName);
+        if (currentImage.value && currentImage.value.name === imageName) {
+          pendingApplyImage.value = imageName
+          clearHistogramCache();
+          loadFullResImage();
+          loadPresets();
+        } else {
+          loadPresets({ skipLoadCurrent: true });
+        }
 
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
@@ -1047,102 +1156,6 @@ const apply = () => {
       if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
         // Re-enable controls immediately on error
         affectedImages.delete(imageName);
-        // 处理完自己的事情后，移除这个特定的监听器
-        ipcRenderer.removeListener('filmparam-apply-error', handleError);
-      }
-    };
-    ipcRenderer.on('filmparam-apply-error', handleError);
-  } catch (error) {
-    // Re-enable controls immediately on error
-    affectedImages.delete(imageName);
-  }
-}
-
-const applyPreview = () => {
-  if (!currentImage.value || !workingDirectory.value) {
-    console.error('No current image or working directory')
-    return
-  }
-
-  if (!window.require) {
-    console.error('Not running in Electron')
-    return
-  }
-
-  // Reset global isSaveAllClicked state
-  setSaveAllClicked(false)
-
-  try {
-    const ipcRenderer = window.require('electron').ipcRenderer
-
-    const imageName = currentImage.value.name;
-
-    // Construct parameters string: "mask_r,mask_g,mask_b,gamma,contrast,contrast_r,contrast_g,contrast_b"
-    const params = `${input1.value},${input2.value},${input3.value},${input4.value},${input5.value},${contrastR.value},${contrastG.value},${contrastB.value}`
-
-    // Mark image as affected to disable controls
-    affectedImages.add(imageName)
-
-    // Send request to main process
-    // 注意：area 必须解包成纯对象，reactive proxy 直接发会让 Electron 的 structured clone 静默失败，
-    // IPC 包根本到不了主进程。
-    const areaForIpc = unwrapArea(areaSelectionsByName.value[imageName])
-    const areaBasisForIpc = areaForIpc ? currentAreaBasisForIpc() : null
-    ipcRenderer.send('apply-filmparam', {
-      inputPath: workingDirectory.value,
-      outputPath: outputDirectory.value,
-      filename: imageName,
-      params: params,
-      rotateClockwise: currentRotateClockwise.value,
-      area: areaForIpc,
-      areaBasis: areaBasisForIpc,
-      exposure: exposure.value,
-      whiteBalance: currentWhiteBalanceForIpc()
-    })
-
-    // Handle response
-    ipcRenderer.once('filmparam-apply-started', (_, result) => {
-      console.log(result.message)
-    })
-
-    ipcRenderer.once('filmparam-apply-progress', (_, result) => {
-      console.log(result.data)
-    })
-
-    // 使用一个命名的函数，方便处理逻辑
-    const handleResponse = (_, result) => {
-      // 关键：由于是全局频道，所有的 apply 请求都会触发这个 handleResponse
-      // 我们必须判断返回的结果是不是当前这张图
-      // result.outputFile 是完整路径，需要从中提取文件名
-      const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
-      console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
-      if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
-        pendingApplyImage.value = imageName
-        clearHistogramCache();
-        refreshImage(imageName);
-        loadFullResImage();
-        loadPresets();
-        affectedImages.delete(imageName);
-
-        // 旋转操作：IPC 成功后旋转白点选区坐标
-        if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
-          rotateStoredAreaSelection(imageName, pendingRotation.value.direction)
-          pendingRotation.value = null
-        }
-
-        // 处理完自己的事情后，移除这个特定的监听器
-        ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
-      }
-    };
-    ipcRenderer.on('filmparam-apply-success', handleResponse);
-
-    const handleError = (_, error) => {
-      console.error('Error applying film parameters:', error);
-      // 关键：同样要判断是不是当前这张图的错误
-      // error.outputFile 是完整路径，需要从中提取文件名
-      const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
-      if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
-        affectedImages.delete(imageName);
         // IPC 失败时清除待旋转标记，避免选区被错误旋转
         if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
           pendingRotation.value = null
@@ -1153,10 +1166,12 @@ const applyPreview = () => {
     };
     ipcRenderer.on('filmparam-apply-error', handleError);
   } catch (error) {
+    // Re-enable controls immediately on error
     affectedImages.delete(imageName);
     pendingRotation.value = null;
   }
 }
+
 
 const applyAll = () => {
   if (!workingDirectory.value) {
@@ -1399,6 +1414,28 @@ function handleKeydown(event) {
     return
   }
 
+  // Ctrl/Cmd +/-/0: zoom main image instead of browser page
+  if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+' || event.key === '-' || event.key === '0')) {
+    if (areaSelectActive.value || eyedropperActive.value) return
+    event.preventDefault()
+    if (event.key === '0') {
+      resetZoom()
+    } else if (event.key === '-' || event.key === '_') {
+      const newZoom = Math.max(0.5, zoomLevel.value / 1.2)
+      const ratio = newZoom / zoomLevel.value
+      panOffsetX.value = panOffsetX.value * ratio
+      panOffsetY.value = panOffsetY.value * ratio
+      zoomLevel.value = newZoom
+    } else {
+      const newZoom = Math.min(5, zoomLevel.value * 1.2)
+      const ratio = newZoom / zoomLevel.value
+      panOffsetX.value = panOffsetX.value * ratio
+      panOffsetY.value = panOffsetY.value * ratio
+      zoomLevel.value = newZoom
+    }
+    return
+  }
+
   // Check if this is one of our navigation shortcuts
   const isNavigationShortcut = (event.key === 'ArrowUp' && event.ctrlKey) ||
     (event.key === 'ArrowDown' && event.ctrlKey) ||
@@ -1486,7 +1523,7 @@ const loadImages = async () => {
   }
 }
 
-const loadPresets = async () => {
+const loadPresets = async ({ skipLoadCurrent = false } = {}) => {
   try {
     if (!workingDirectory.value || !window.require) {
       return
@@ -1499,7 +1536,7 @@ const loadPresets = async () => {
     ipcRenderer.once('preset-json-loaded', (_, result) => {
       presetsData.value = result.presets || {}
       presetsDataLoaded.value = true
-      loadPresetForCurrentImage()
+      if (!skipLoadCurrent) loadPresetForCurrentImage()
     })
 
     ipcRenderer.once('preset-json-error', (_, error) => {
@@ -1547,7 +1584,6 @@ const loadPresetForCurrentImage = () => {
     }
   }
 
-  // Set presetLoaded to true after loading presets, enabling preview debounce
   presetLoaded.value = true
 }
 
@@ -1622,39 +1658,6 @@ watch(isCurrentImageApplied, (applied) => {
   }
 })
 
-// Create debounced version of applyPreview
-const debouncedApplyPreview = debounce(() => {
-  if (!presetLoaded.value) {
-    return
-  }
-  applyPreview()
-}, 5000)
-
-// Handle keydown events in input fields for preview
-function handleInputKeydown(event) {
-  // Only process if target is an input field and preset is loaded
-  if (event.target.tagName !== 'INPUT' || !presetLoaded.value) {
-    return
-  }
-
-  // Apply debounced preview
-  debouncedApplyPreview()
-}
-
-// Watch for input value changes to restart debounce (only if user has already started typing)
-const inputsToWatch = [input1, input2, input3, input4, input5, contrastR, contrastG, contrastB]
-inputsToWatch.forEach(input => {
-  watch(input, () => {
-    // Only restart debounce if preset is loaded and current image is affected
-    // This ensures we don't start previewing automatically after mounted
-    if (!presetLoaded.value || !isCurrentImageAffected.value) {
-      return
-    }
-
-    // Apply debounced preview (this will restart the timer)
-    debouncedApplyPreview()
-  })
-})
 
 // 操作面板挂在 v-else 分支里，初次 onMounted 时 ref 还是 null。
 // 用 watch 跟踪 ref 的挂载时机，一出现就接上 ResizeObserver，
@@ -1687,6 +1690,8 @@ onUnmounted(() => {
   // 防御：组件卸载时清掉拖拽期间挂在 window 上的临时监听器
   window.removeEventListener('mousemove', onAreaMouseMoveWindow)
   window.removeEventListener('mouseup', onAreaMouseUpWindow)
+  window.removeEventListener('mousemove', onPanMouseMove)
+  window.removeEventListener('mouseup', onPanMouseUp)
   if (operationAreaResizeObserver) {
     operationAreaResizeObserver.disconnect()
     operationAreaResizeObserver = null

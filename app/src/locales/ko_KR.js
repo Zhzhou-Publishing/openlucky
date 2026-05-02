@@ -13,7 +13,10 @@ export default {
     selectButton: '📁 폴더 선택',
     loading: '불러오는 중...',
     selectedPath: '선택한 경로(經路):',
-    processingProgress: '미리보기 준비 중'
+    processingProgress: 'Preparing preview',
+    compressPreview: 'Compress Preview',
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: 'Cancel',
   },
   photoGallery: {
     back: '← 뒤로',
@@ -63,6 +66,7 @@ export default {
       rotate: '회전(回轉)',
       rotateClockwise: '시계 방향 90°',
       rotateCounterClockwise: '반시계 방향 90°',
+      rotate180: '180° 회전',
       resetImage: 'Reset Image',
     },
     eyedropper: {

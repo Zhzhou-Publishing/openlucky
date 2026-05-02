@@ -4,28 +4,38 @@
       <h1 class="page-title">{{ $t('photoDirectory.title') }}</h1>
       <p class="page-description">{{ $t('photoDirectory.description') }}</p>
 
-      <!-- OpenLucky installation error -->
-      <div v-if="!openluckyAvailable" class="installation-error">
+      <!-- OpenLucky installation error (always occupies space) -->
+      <div class="installation-error" :class="{ hidden: openluckyAvailable }">
         {{ $t('photoDirectory.installationError') }}
       </div>
 
-      <!-- Electron environment indicator -->
-      <div v-if="!isElectron" class="warning-box">
+      <!-- Electron environment indicator (always occupies space) -->
+      <div class="warning-box" :class="{ hidden: isElectron }">
         {{ $t('photoDirectory.electronWarning') }}
       </div>
 
       <button
-        @click="selectDirectory"
+        @click="onButtonClick"
         class="select-button"
-        :disabled="isLoading || !isElectron || !openluckyAvailable"
+        :class="{ loading: isLoading }"
+        :disabled="!isElectron || !openluckyAvailable"
+        @mouseenter="isHoveringButton = true"
+        @mouseleave="isHoveringButton = false"
       >
-        <span v-if="!isLoading">{{ $t('photoDirectory.selectButton') }}</span>
-        <span v-else>{{ $t('photoDirectory.loading') }}</span>
+        <template v-if="!isLoading">
+          <span class="btn-text">{{ $t('photoDirectory.selectButton') }}</span>
+        </template>
+        <template v-else>
+          <span v-if="isHoveringButton" class="btn-text">{{ $t('photoDirectory.cancel') }}</span>
+          <span v-else class="btn-progress">{{ processingProgress }}</span>
+        </template>
       </button>
 
-      <div v-if="selectedPath || processingProgress" class="selected-info">
-        <p class="path-label">{{ processingProgress ? $t('photoDirectory.processingProgress') : $t('photoDirectory.selectedPath') }}</p>
-        <p class="path-text">{{ processingProgress || selectedPath }}</p>
+      <!-- Compress preview toggle -->
+      <div class="compress-toggle">
+        <CapsuleSwitch v-model="compressPreview" :disabled="isLoading" />
+        <span class="compress-label">{{ $t('photoDirectory.compressPreview') }}</span>
+        <Popover :text="$t('photoDirectory.compressPreviewTip')" />
       </div>
     </div>
   </div>
@@ -35,6 +45,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchPresets } from '../utils/presetCache'
+import CapsuleSwitch from '../components/CapsuleSwitch.vue'
+import Popover from '../components/Popover.vue'
 
 const router = useRouter()
 
@@ -88,6 +100,24 @@ const checkOpenLucky = () => {
 const selectedPath = ref('')
 const isLoading = ref(false)
 const processingProgress = ref('')
+const compressPreview = ref(false)
+const isHoveringButton = ref(false)
+
+const onButtonClick = () => {
+  if (isLoading.value) {
+    cancelLoading()
+  } else {
+    selectDirectory()
+  }
+}
+
+const cancelLoading = () => {
+  if (ipcRenderer) {
+    ipcRenderer.send('cancel-processing')
+  }
+  isLoading.value = false
+  processingProgress.value = ''
+}
 
 const selectDirectory = async () => {
   try {
@@ -113,7 +143,7 @@ const selectDirectory = async () => {
 
       // Prepare working directory from selected directory
       isLoading.value = true
-      ipcRenderer.send('prepare-working-directory-from-selected', result.path)
+      ipcRenderer.send('prepare-working-directory-from-selected', result.path, { compressPreview: compressPreview.value })
     })
 
     // Handle working directory preparation success
@@ -129,7 +159,8 @@ const selectDirectory = async () => {
         query: {
           workingDirectory: result.workingDirectory,
           outputDirectory: result.outputDirectory,
-          originalDirectory: result.originalDirectory
+          originalDirectory: result.originalDirectory,
+          compressPreview: compressPreview.value ? '1' : ''
         }
       })
     })
@@ -182,10 +213,9 @@ const selectDirectory = async () => {
 
 <style scoped>
 .photo-directory-page {
-  padding: 40px 20px;
+  padding: 30vh 20px 40px;
   display: flex;
   justify-content: center;
-  align-items: center;
   min-height: 100vh;
 }
 
@@ -204,7 +234,7 @@ const selectDirectory = async () => {
 .page-description {
   font-size: 16px;
   color: var(--text-secondary);
-  margin-bottom: 40px;
+  margin-bottom: 16px;
 }
 
 .installation-error {
@@ -218,10 +248,53 @@ const selectDirectory = async () => {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
+.installation-error.hidden {
+  margin: 0;
+  padding: 0;
+  border: none;
+  max-height: 0;
+  overflow: hidden;
+}
+
+.warning-box {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  font-size: 15px;
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.warning-box.hidden {
+  margin: 0;
+  padding: 0;
+  border: none;
+  max-height: 0;
+  overflow: hidden;
+}
+
+.compress-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 24px 0;
+}
+
+.compress-label {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
 .select-button {
   width: 100%;
-  padding: 80px 40px;
-  font-size: 24px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40px;
   font-weight: 600;
   color: var(--text-on-accent);
   background: linear-gradient(135deg, #42b883 0%, #35495e 100%);
@@ -247,25 +320,29 @@ const selectDirectory = async () => {
   cursor: not-allowed;
 }
 
-.selected-info {
-  margin-top: 40px;
-  padding: 20px;
-  background: var(--bg-surface);
-  border-radius: 8px;
-  box-shadow: 0 2px 4px var(--shadow);
+.select-button.loading {
+  opacity: 1;
+  cursor: default;
 }
 
-.path-label {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
+.select-button.loading:hover {
+  cursor: pointer;
+  background: linear-gradient(135deg, #f5a623 0%, #cc7000 100%);
+  color: #fff;
 }
 
-.path-text {
+.btn-text {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.btn-progress {
   font-size: 16px;
-  color: var(--accent);
+  font-weight: 400;
   font-family: monospace;
   word-break: break-all;
+  text-align: center;
+  line-height: 1.5;
 }
 
 .files-info {
