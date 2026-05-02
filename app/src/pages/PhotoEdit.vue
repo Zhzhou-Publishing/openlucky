@@ -705,7 +705,8 @@ const ctxMenuItems = computed(() => {
       disabled: busy,
       children: [
         { label: t('photoEdit.contextMenu.rotateClockwise'), action: rotateClockwiseBtn, disabled: busy },
-        { label: t('photoEdit.contextMenu.rotateCounterClockwise'), action: rotateCounterClockwiseBtn, disabled: busy }
+        { label: t('photoEdit.contextMenu.rotateCounterClockwise'), action: rotateCounterClockwiseBtn, disabled: busy },
+        { label: t('photoEdit.contextMenu.rotate180'), action: rotate180Btn, disabled: busy }
       ]
     },
     { type: 'separator' },
@@ -911,15 +912,20 @@ function rotateStoredAreaSelection(imageName, direction) {
   if (!dims || !dims.w || !dims.h) return
   const { w, h } = dims
   const { x1, y1, x2, y2 } = stored
-  const rotated = direction === 'cw'
-    ? { x1: h - y2, y1: x1, x2: h - y1, y2: x2 }
-    : { x1: y1, y1: w - x2, x2: y2, y2: w - x1 }
+  let rotated
+  if (direction === '180') {
+    rotated = { x1: w - x2, y1: h - y2, x2: w - x1, y2: h - y1 }
+  } else if (direction === 'cw') {
+    rotated = { x1: h - y2, y1: x1, x2: h - y1, y2: x2 }
+    currentImageNaturalDims.value = { w: h, h: w }
+  } else {
+    rotated = { x1: y1, y1: w - x2, x2: y2, y2: w - x1 }
+    currentImageNaturalDims.value = { w: h, h: w }
+  }
   areaSelectionsByName.value = {
     ...areaSelectionsByName.value,
     [imageName]: rotated,
   }
-  // 当前显示的自然尺寸也跟着转 90°，新加载的图回来前先把 ROI 预览框对齐
-  currentImageNaturalDims.value = { w: h, h: w }
   persistAreaSelections()
 }
 
@@ -942,6 +948,16 @@ const rotateCounterClockwiseBtn = () => {
   if (newAngle < 0) newAngle = newAngle + 360
   rotateClockwiseMap.value[imageName] = newAngle
   pendingRotation.value = { imageName, direction: 'ccw' }
+  applyPreview()
+}
+
+const rotate180Btn = () => {
+  if (!currentImage.value) return
+  const imageName = currentImage.value.name
+  const currentAngle = rotateClockwiseMap.value[imageName] || 0
+  const newAngle = (currentAngle + 180) % 360
+  rotateClockwiseMap.value[imageName] = newAngle
+  pendingRotation.value = { imageName, direction: '180' }
   applyPreview()
 }
 

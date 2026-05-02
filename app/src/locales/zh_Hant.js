@@ -66,6 +66,7 @@ export default {
       rotate: '旋轉',
       rotateClockwise: '順時針 90°',
       rotateCounterClockwise: '逆時針 90°',
+      rotate180: '旋轉 180°',
       resetImage: '重置圖片',
     },
     eyedropper: {

@@ -66,6 +66,7 @@ export default {
       rotate: 'བསྐོར་སྐྱོད།',
       rotateClockwise: 'ཆུ་ཚོད་ཀྱི་ཕྱོགས་སུ་ 90°',
       rotateCounterClockwise: 'ཆུ་ཚོད་ལོག་ཕྱོགས་སུ་ 90°',
+      rotate180: '180° བསྐོར།',
       resetImage: 'Reset Image',
     },
     eyedropper: {

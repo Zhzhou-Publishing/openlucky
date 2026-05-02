@@ -66,6 +66,7 @@ export default {
       rotate: 'Xoay',
       rotateClockwise: 'Theo chiều kim đồng hồ 90°',
       rotateCounterClockwise: 'Ngược chiều kim đồng hồ 90°',
+      rotate180: 'Xoay 180°',
       resetImage: 'Reset Image',
     },
     eyedropper: {

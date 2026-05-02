@@ -66,6 +66,7 @@ export default {
       rotate: 'Obróć',
       rotateClockwise: 'Zgodnie z ruchem wskazówek zegara 90°',
       rotateCounterClockwise: 'Przeciwnie do ruchu wskazówek zegara 90°',
+      rotate180: 'Obróć o 180°',
       resetImage: 'Reset Image',
     },
     eyedropper: {

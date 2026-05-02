@@ -66,6 +66,7 @@ export default {
       rotate: 'Rotate',
       rotateClockwise: 'Clockwise 90°',
       rotateCounterClockwise: 'Counter-clockwise 90°',
+      rotate180: 'Rotate 180°',
       resetImage: 'Reset Image'
     },
     eyedropper: {

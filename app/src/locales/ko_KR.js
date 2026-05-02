@@ -66,6 +66,7 @@ export default {
       rotate: '회전(回轉)',
       rotateClockwise: '시계 방향 90°',
       rotateCounterClockwise: '반시계 방향 90°',
+      rotate180: '180° 회전',
       resetImage: 'Reset Image',
     },
     eyedropper: {

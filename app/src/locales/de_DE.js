@@ -66,6 +66,7 @@ export default {
       rotate: 'Drehen',
       rotateClockwise: 'Im Uhrzeigersinn 90°',
       rotateCounterClockwise: 'Gegen den Uhrzeigersinn 90°',
+      rotate180: '180° drehen',
       resetImage: 'Reset Image',
     },
     eyedropper: {

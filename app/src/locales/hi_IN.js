@@ -66,6 +66,7 @@ export default {
       rotate: 'घुमाएं',
       rotateClockwise: 'दक्षिणावर्त 90°',
       rotateCounterClockwise: 'वामावर्त 90°',
+      rotate180: '180° घुमाएं',
       resetImage: 'Reset Image',
     },
     eyedropper: {

@@ -66,6 +66,7 @@ export default {
       rotate: 'Rodar',
       rotateClockwise: 'Sentido horário 90°',
       rotateCounterClockwise: 'Sentido anti-horário 90°',
+      rotate180: 'Rodar 180°',
       resetImage: 'Reset Image',
     },
     eyedropper: {
