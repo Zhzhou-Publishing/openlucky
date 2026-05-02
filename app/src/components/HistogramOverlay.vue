@@ -13,11 +13,14 @@
       :viewBox="`0 0 ${width} ${height}`"
       preserveAspectRatio="none"
     >
-      <polyline v-if="paths.r" :points="paths.r" class="ch ch-r" />
-      <polyline v-if="paths.g" :points="paths.g" class="ch ch-g" />
-      <polyline v-if="paths.b" :points="paths.b" class="ch ch-b" />
-      <polyline v-if="paths.l" :points="paths.l" class="ch ch-l" />
+      <polyline v-if="!loading && paths.r" :points="paths.r" class="ch ch-r" />
+      <polyline v-if="!loading && paths.g" :points="paths.g" class="ch ch-g" />
+      <polyline v-if="!loading && paths.b" :points="paths.b" class="ch ch-b" />
+      <polyline v-if="!loading && paths.l" :points="paths.l" class="ch ch-l" />
     </svg>
+    <div v-if="loading" class="histogram-loading">
+      <div class="histogram-spinner"></div>
+    </div>
   </div>
 </template>
 
@@ -33,7 +36,11 @@ const props = defineProps({
   height: { type: Number, default: 100 },
   initialX: { type: Number, default: 120 },
   initialY: { type: Number, default: 80 },
+  loading: { type: Boolean, default: false },
 })
+
+const PAD_X = 8
+const PAD_Y = 4
 
 const x = ref(props.initialX)
 const y = ref(props.initialY)
@@ -41,11 +48,14 @@ const dragging = ref(false)
 let dragOffsetX = 0
 let dragOffsetY = 0
 
+const outerW = computed(() => props.width + PAD_X * 2)
+const outerH = computed(() => props.height + PAD_Y * 2)
+
 const overlayStyle = computed(() => ({
   left: `${x.value}px`,
   top: `${y.value}px`,
-  width: `${props.width}px`,
-  height: `${props.height}px`,
+  width: `${outerW.value}px`,
+  height: `${outerH.value}px`,
 }))
 
 function clamp(v, min, max) {
@@ -92,8 +102,8 @@ function onMouseMove(e) {
   if (!dragging.value) return
   // Keep the overlay inside the viewport so it can't get dragged offscreen.
   const margin = 4
-  x.value = clamp(e.clientX - dragOffsetX, margin, window.innerWidth - props.width - margin)
-  y.value = clamp(e.clientY - dragOffsetY, margin, window.innerHeight - props.height - margin)
+  x.value = clamp(e.clientX - dragOffsetX, margin, window.innerWidth - outerW.value - margin)
+  y.value = clamp(e.clientY - dragOffsetY, margin, window.innerHeight - outerH.value - margin)
 }
 
 function onMouseUp() {
@@ -119,6 +129,11 @@ onUnmounted(() => {
   user-select: none;
   box-sizing: border-box;
   overflow: hidden;
+  padding: 4px 8px;
+}
+
+:global(:root.dark .histogram-overlay) {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .histogram-overlay.dragging {
@@ -149,5 +164,36 @@ onUnmounted(() => {
 
 .ch-l {
   stroke: rgba(255, 255, 255, 0.9);
+}
+
+.histogram-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+}
+
+.histogram-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid var(--text-on-accent);
+  border-radius: 50%;
+  animation: hist-spin 1s linear infinite;
+}
+
+@keyframes hist-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

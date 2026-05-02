@@ -154,7 +154,7 @@
       </div>
     </div>
 
-    <HistogramOverlay v-if="histogramData" :histogram="histogramData" />
+    <HistogramOverlay v-if="isHistogramDisplay" :histogram="histogramData" :loading="isHistogramLoading" />
 
     <ContextMenu v-model="ctxMenuVisible" :items="ctxMenuItems" :position="ctxMenuPos" />
 
@@ -230,6 +230,8 @@ const WB_TEMP_GRADIENT = 'linear-gradient(to right, #4a90e2 0%, #cccccc 50%, #f5
 const WB_TINT_GRADIENT = 'linear-gradient(to right, #e91e63 0%, #cccccc 50%, #4caf50 100%)'
 const presetsData = ref({})
 const presetsDataLoaded = ref(false)
+// 旋转操作：先发 IPC，成功后再旋转选区坐标，避免 IPC 失败时选区被错误旋转
+const pendingRotation = ref(null) // null | { imageName: string, direction: 'cw' | 'ccw' }
 
 // 直方图叠加层：每次主图加载完成或被 apply 刷新后重算一次。
 // 数据是 [R, G, B, L] 四数组，已由 CLI 用 log + n=100 规约到画布像素，
@@ -242,9 +244,62 @@ const HISTOGRAM_HEIGHT = 100
 const HISTOGRAM_BINS = 256
 const histogramData = ref(null)
 let histogramRequestSeq = 0
+// apply 成功后 affectedImages 被同步清除但 loadPresets 是异步的，
+// 桥接这个间隙保持 isHistogramDisplay 不闪烁。
+const pendingApplyImage = ref(null)
+function histogramCacheKey(directoryPath, filename, area) {
+  const areaKey = area ? `${area.x1},${area.y1},${area.x2},${area.y2}` : 'full'
+  return `histogram:${directoryPath}:${filename}:${areaKey}`
+}
+
+function readHistogramCache(key) {
+  try {
+    const raw = sessionStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function writeHistogramCache(key, data) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(data))
+  } catch {
+    // sessionStorage 满了就静默跳过
+  }
+}
+
+function clearHistogramCache() {
+  try {
+    const keys = []
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i)
+      if (key && key.startsWith('histogram:')) {
+        keys.push(key)
+      }
+    }
+    keys.forEach(k => sessionStorage.removeItem(k))
+  } catch {
+    // 静默跳过
+  }
+}
+
 async function fetchHistogramFor(directoryPath, filename, area) {
   if (!directoryPath || !filename || !window.require) {
     histogramData.value = null
+    return
+  }
+  // 只对有 output_dir 的图片采样。apply 进行中不采样——此时 .preset.json
+  // 还没有 output_dir，compute-histogram 会退回底片路径。
+  const entry = presetsData.value?.[filename]
+  if (!entry || !entry.output_dir) {
+    histogramData.value = null
+    return
+  }
+  const cacheKey = histogramCacheKey(directoryPath, filename, area)
+  const cached = readHistogramCache(cacheKey)
+  if (cached) {
+    histogramData.value = cached
     return
   }
   const seq = ++histogramRequestSeq
@@ -260,6 +315,7 @@ async function fetchHistogramFor(directoryPath, filename, area) {
     // 防止旧请求覆盖新结果（用户快速切图时容易触发）。
     if (seq === histogramRequestSeq) {
       histogramData.value = result
+      writeHistogramCache(cacheKey, result)
     }
   } catch (err) {
     console.error('Failed to compute histogram:', err)
@@ -534,7 +590,7 @@ async function onImageClick(e) {
   try {
     const ipcRenderer = window.require('electron').ipcRenderer
     const result = await ipcRenderer.invoke('pick-color', {
-      filePath: currentImage.value.path,
+      filePath: path.join(workingDirectory.value, currentImage.value.name),
       x: pixelX,
       y: pixelY,
       format: '8',
@@ -692,6 +748,28 @@ const hasUnappliedImages = computed(() => {
   return images.value.some(img => !presetsData.value || !presetsData.value[img.name])
 })
 
+const isCurrentImageApplied = computed(() => {
+  if (!currentFileName.value || !presetsData.value) return false
+  return !!presetsData.value[currentFileName.value]
+})
+
+// 浮层显示：已 apply（有 output_dir）或正在 apply 或刚完成 apply 等待 presets 刷新。
+const isHistogramDisplay = computed(() => {
+  if (!currentImage.value) return false
+  if (isCurrentImageAffected.value) return true
+  if (isCurrentImageApplied.value) return true
+  if (pendingApplyImage.value === currentImage.value.name) return true
+  return false
+})
+
+// 转圈：正在 apply、等待首次采样、或图片未 apply（等待用户操作）。
+const isHistogramLoading = computed(() => {
+  if (isCurrentImageAffected.value) return true
+  if (!isCurrentImageApplied.value) return true
+  if (!histogramData.value) return true
+  return false
+})
+
 const currentDirectoryName = computed(() => {
   if (originalDirectory.value) {
     const parts = originalDirectory.value.split(/[/\\]/)
@@ -759,7 +837,7 @@ const rotateClockwiseBtn = () => {
   let newAngle = (currentAngle + 90) % 360
   if (newAngle === 360) newAngle = 0
   rotateClockwiseMap.value[imageName] = newAngle
-  rotateStoredAreaSelection(imageName, 'cw')
+  pendingRotation.value = { imageName, direction: 'cw' }
   applyPreview()
 }
 
@@ -770,7 +848,7 @@ const rotateCounterClockwiseBtn = () => {
   let newAngle = currentAngle - 90
   if (newAngle < 0) newAngle = newAngle + 360
   rotateClockwiseMap.value[imageName] = newAngle
-  rotateStoredAreaSelection(imageName, 'ccw')
+  pendingRotation.value = { imageName, direction: 'ccw' }
   applyPreview()
 }
 
@@ -948,6 +1026,8 @@ const apply = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
+        pendingApplyImage.value = imageName
+        clearHistogramCache();
         refreshImage(imageName);
         loadFullResImage();
         loadPresets();
@@ -1037,10 +1117,18 @@ const applyPreview = () => {
       const resultFilename = result.outputFile ? path.basename(result.outputFile) : null
       console.log(`resultFilename:${resultFilename}    result.outputFile:${result.outputFile}    imageName:${imageName}`)
       if (resultFilename === imageName || result.outputFile?.includes(imageName)) {
+        pendingApplyImage.value = imageName
+        clearHistogramCache();
         refreshImage(imageName);
         loadFullResImage();
         loadPresets();
         affectedImages.delete(imageName);
+
+        // 旋转操作：IPC 成功后旋转白点选区坐标
+        if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
+          rotateStoredAreaSelection(imageName, pendingRotation.value.direction)
+          pendingRotation.value = null
+        }
 
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-success', handleResponse);
@@ -1055,6 +1143,10 @@ const applyPreview = () => {
       const errorFilename = error.outputFile ? path.basename(error.outputFile) : null
       if (errorFilename === imageName || error.outputFile?.includes(imageName)) {
         affectedImages.delete(imageName);
+        // IPC 失败时清除待旋转标记，避免选区被错误旋转
+        if (pendingRotation.value && pendingRotation.value.imageName === imageName) {
+          pendingRotation.value = null
+        }
         // 处理完自己的事情后，移除这个特定的监听器
         ipcRenderer.removeListener('filmparam-apply-error', handleError);
       }
@@ -1062,6 +1154,7 @@ const applyPreview = () => {
     ipcRenderer.on('filmparam-apply-error', handleError);
   } catch (error) {
     affectedImages.delete(imageName);
+    pendingRotation.value = null;
   }
 }
 
@@ -1121,6 +1214,8 @@ const applyAll = () => {
 
     ipcRenderer.once('filmparambatch-apply-success', (_, result) => {
       console.log(result.message)
+      pendingApplyImage.value = currentImage.value?.name || null
+      clearHistogramCache()
       // Update all image timestamps to refresh display without reloading page
       images.value.forEach(img => {
         img.timestamp = Date.now()
@@ -1252,8 +1347,8 @@ const loadFullResImage = async () => {
           const width = previousImageDimensions.value.width
           const height = previousImageDimensions.value.height
           const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-            <rect width="${width}" height="${height}" fill="#cccccc"/>
-            <text x="${width / 2}" y="${height / 2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#666666">RAW file converting...</text>
+            <rect width="${width}" height="${height}" fill="#3c3c3c"/>
+            <text x="${width / 2}" y="${height / 2}" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#888888">RAW file converting...</text>
           </svg>`
           fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
         } else {
@@ -1471,7 +1566,7 @@ watch(currentIndex, () => {
   // Set placeholder image before loading new one
   const width = previousImageDimensions.value.width
   const height = previousImageDimensions.value.height
-  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="${width}" height="${height}" fill="white"/></svg>`
+  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><rect width="${width}" height="${height}" fill="#3c3c3c"/></svg>`
   fullResImageUrl.value = 'data:image/svg+xml;base64,' + btoa(svg)
 
   // Reset presetLoaded state when switching images
@@ -1503,12 +1598,27 @@ const currentImageArea = computed(() => {
 
 // 主图刷新（切图、apply 完成）或白点选区改动时重算直方图。
 // fullResImageUrl 处理图片身份/时间戳变化，currentImageArea 处理选区变化。
+// fetchHistogramFor 内部会判断图片是否已 apply，避免对底片做无意义的采样。
 watch([fullResImageUrl, currentImageArea], () => {
   const filename = currentImage.value?.name
   if (filename && workingDirectory.value) {
     fetchHistogramFor(workingDirectory.value, filename, currentImageArea.value)
   } else {
     histogramData.value = null
+  }
+})
+
+// apply 成功后 loadFullResImage（触发上方 watcher）和 loadPresets（更新 presetsData）
+// 是并发异步的。如果 loadPresets 晚于 loadFullResImage 完成，上方 watcher 触发时
+// presetsData 尚未更新，守卫会阻止采样。这里兜底：一旦 presetsData 就绪且当前图片
+// 已 apply 但还没有直方图数据，补一次采样。
+watch(isCurrentImageApplied, (applied) => {
+  if (applied) {
+    pendingApplyImage.value = null
+    const filename = currentImage.value?.name
+    if (filename && workingDirectory.value && !histogramData.value) {
+      fetchHistogramFor(workingDirectory.value, filename, currentImageArea.value)
+    }
   }
 })
 
@@ -1587,7 +1697,7 @@ onUnmounted(() => {
 <style scoped>
 .photo-edit-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-page);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1598,8 +1708,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  background: white;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   z-index: 10;
@@ -1607,8 +1717,8 @@ onUnmounted(() => {
 
 .back-button {
   padding: 10px 20px;
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1617,12 +1727,12 @@ onUnmounted(() => {
 }
 
 .back-button:hover {
-  background: #35a372;
+  background: var(--accent-hover);
 }
 
 .file-name {
   font-size: 20px;
-  color: #333;
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
   text-align: center;
@@ -1630,7 +1740,7 @@ onUnmounted(() => {
 
 .directory-name {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1643,14 +1753,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 50px;
   height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #42b883;
+  border: 4px solid var(--border-light);
+  border-top: 4px solid var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 20px;
@@ -1682,13 +1792,13 @@ onUnmounted(() => {
 
 .empty-state h2 {
   font-size: 24px;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
 .empty-state p {
   font-size: 16px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .content {
@@ -1702,8 +1812,8 @@ onUnmounted(() => {
 .thumbnails-container {
   width: 100px;
   height: calc(100vh - 64px - 80px);
-  background: white;
-  border-right: 1px solid #e0e0e0;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
   overflow-y: scroll;
   overflow-x: hidden;
   flex-shrink: 0;
@@ -1714,12 +1824,12 @@ onUnmounted(() => {
 }
 
 .thumbnails-container::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--btn-disabled-bg);
   border-radius: 3px;
 }
 
 .thumbnails-container::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--btn-disabled-bg);
 }
 
 .thumbnails-wrapper {
@@ -1747,7 +1857,7 @@ onUnmounted(() => {
 }
 
 .thumbnail-item.active {
-  border-color: #42b883;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(66, 184, 131, 0.3);
 }
 
@@ -1776,7 +1886,7 @@ onUnmounted(() => {
   width: 24px;
   height: 24px;
   border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top: 3px solid #fff;
+  border-top: 3px solid var(--bg-surface);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -1847,7 +1957,7 @@ onUnmounted(() => {
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.78);
-  color: #fff;
+  color: var(--text-on-accent);
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
@@ -1879,7 +1989,7 @@ onUnmounted(() => {
   bottom: 5%;
   right: 5%;
   background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  color: var(--text-on-accent);
   padding: 6px 12px;
   border-radius: 4px;
   font-size: 12px;
@@ -1904,17 +2014,17 @@ onUnmounted(() => {
 .preset-modal-select {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 14px;
-  color: #333;
-  background: #fff;
+  color: var(--text-primary);
+  background: var(--bg-input);
   cursor: pointer;
 }
 
 .preset-modal-select:focus {
   outline: none;
-  border-color: #42b883;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(66, 184, 131, 0.15);
 }
 
@@ -1925,8 +2035,8 @@ onUnmounted(() => {
   left: 100px;
   right: 0;
   padding: 8px 16px;
-  background: white;
-  border-top: 1px solid #e0e0e0;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
   z-index: 100;
   box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1959,7 +2069,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #444;
+  color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -2004,8 +2114,8 @@ onUnmounted(() => {
 .apply-button,
 .apply-all-button {
   padding: 8px 20px;
-  background: #42b883;
-  color: white;
+  background: var(--accent);
+  color: var(--text-on-accent);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -2017,7 +2127,7 @@ onUnmounted(() => {
 
 .apply-button:hover:not(:disabled),
 .apply-all-button:hover:not(:disabled) {
-  background: #35a372;
+  background: var(--accent-hover);
 }
 
 .apply-button:active:not(:disabled),
@@ -2027,7 +2137,7 @@ onUnmounted(() => {
 
 .apply-button:disabled,
 .apply-all-button:disabled {
-  background: #ccc;
+  background: var(--btn-disabled-bg);
   cursor: not-allowed;
   opacity: 0.6;
 }
