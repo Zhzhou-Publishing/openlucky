@@ -1131,13 +1131,15 @@ const apply = () => {
           pendingRotation.value = null
         }
 
-        // 只有当前展示的图片才刷新主图和直方图
+        // 始终刷新缩略图和 presetsData（用户可能已切走），只有当前展示的图片才刷新主图和直方图
+        refreshImage(imageName);
         if (currentImage.value && currentImage.value.name === imageName) {
           pendingApplyImage.value = imageName
           clearHistogramCache();
-          refreshImage(imageName);
           loadFullResImage();
           loadPresets();
+        } else {
+          loadPresets({ skipLoadCurrent: true });
         }
 
         // 处理完自己的事情后，移除这个特定的监听器
@@ -1521,7 +1523,7 @@ const loadImages = async () => {
   }
 }
 
-const loadPresets = async () => {
+const loadPresets = async ({ skipLoadCurrent = false } = {}) => {
   try {
     if (!workingDirectory.value || !window.require) {
       return
@@ -1534,7 +1536,7 @@ const loadPresets = async () => {
     ipcRenderer.once('preset-json-loaded', (_, result) => {
       presetsData.value = result.presets || {}
       presetsDataLoaded.value = true
-      loadPresetForCurrentImage()
+      if (!skipLoadCurrent) loadPresetForCurrentImage()
     })
 
     ipcRenderer.once('preset-json-error', (_, error) => {
