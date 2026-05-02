@@ -15,7 +15,8 @@ export default {
     selectedPath: '已選擇路徑：',
     processingProgress: 'Preparing preview',
     compressPreview: 'Compress Preview',
-    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.'
+    compressPreviewTip: 'Thumbnails will be compressed to 1920px width to speed up preview. This speeds up mask removal preview but slows down the loading process.',
+    cancel: '取消'
   },
   photoGallery: {
     back: '← 返回',

@@ -15,12 +15,20 @@
       </div>
 
       <button
-        @click="selectDirectory"
+        @click="onButtonClick"
         class="select-button"
-        :disabled="isLoading || !isElectron || !openluckyAvailable"
+        :class="{ loading: isLoading }"
+        :disabled="!isElectron || !openluckyAvailable"
+        @mouseenter="isHoveringButton = true"
+        @mouseleave="isHoveringButton = false"
       >
-        <span v-if="!isLoading">{{ $t('photoDirectory.selectButton') }}</span>
-        <span v-else>{{ $t('photoDirectory.loading') }}</span>
+        <template v-if="!isLoading">
+          <span class="btn-text">{{ $t('photoDirectory.selectButton') }}</span>
+        </template>
+        <template v-else>
+          <span v-if="isHoveringButton" class="btn-text">{{ $t('photoDirectory.cancel') }}</span>
+          <span v-else class="btn-progress">{{ processingProgress }}</span>
+        </template>
       </button>
 
       <!-- Compress preview toggle -->
@@ -28,11 +36,6 @@
         <CapsuleSwitch v-model="compressPreview" :disabled="isLoading" />
         <span class="compress-label">{{ $t('photoDirectory.compressPreview') }}</span>
         <Popover :text="$t('photoDirectory.compressPreviewTip')" />
-      </div>
-
-      <div class="selected-info" :class="{ hidden: !selectedPath && !processingProgress }">
-        <p class="path-label">{{ processingProgress ? $t('photoDirectory.processingProgress') : $t('photoDirectory.selectedPath') }}</p>
-        <p class="path-text">{{ processingProgress || selectedPath }}</p>
       </div>
     </div>
   </div>
@@ -98,6 +101,23 @@ const selectedPath = ref('')
 const isLoading = ref(false)
 const processingProgress = ref('')
 const compressPreview = ref(false)
+const isHoveringButton = ref(false)
+
+const onButtonClick = () => {
+  if (isLoading.value) {
+    cancelLoading()
+  } else {
+    selectDirectory()
+  }
+}
+
+const cancelLoading = () => {
+  if (ipcRenderer) {
+    ipcRenderer.send('cancel-processing')
+  }
+  isLoading.value = false
+  processingProgress.value = ''
+}
 
 const selectDirectory = async () => {
   try {
@@ -270,8 +290,11 @@ const selectDirectory = async () => {
 
 .select-button {
   width: 100%;
-  padding: 40px;
-  font-size: 24px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40px;
   font-weight: 600;
   color: var(--text-on-accent);
   background: linear-gradient(135deg, #42b883 0%, #35495e 100%);
@@ -297,33 +320,29 @@ const selectDirectory = async () => {
   cursor: not-allowed;
 }
 
-.selected-info {
-  margin-top: 40px;
-  padding: 20px;
-  background: var(--bg-surface);
-  border-radius: 8px;
-  box-shadow: 0 2px 4px var(--shadow);
+.select-button.loading {
+  opacity: 1;
+  cursor: default;
 }
 
-.selected-info.hidden {
-  margin: 0;
-  padding: 0;
-  border: none;
-  max-height: 0;
-  overflow: hidden;
+.select-button.loading:hover {
+  cursor: pointer;
+  background: linear-gradient(135deg, #f5a623 0%, #cc7000 100%);
+  color: #fff;
 }
 
-.path-label {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
+.btn-text {
+  font-size: 24px;
+  font-weight: 600;
 }
 
-.path-text {
+.btn-progress {
   font-size: 16px;
-  color: var(--accent);
+  font-weight: 400;
   font-family: monospace;
   word-break: break-all;
+  text-align: center;
+  line-height: 1.5;
 }
 
 .files-info {
