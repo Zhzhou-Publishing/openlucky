@@ -38,15 +38,22 @@
         <div class="image-display"
              :class="{ 'eyedropper-active': eyedropperActive, 'area-select-active': areaSelectActive }"
              :style="{ height: imageDisplayHeight }"
+             @wheel="onImageDisplayWheel"
              @contextmenu.prevent="onContextMenu">
-          <div class="image-wrapper" @mouseenter="onWrapperEnter" @mouseleave="onWrapperLeave">
+          <div class="image-wrapper"
+               :style="imageWrapperStyle"
+               @mouseenter="onWrapperEnter"
+               @mouseleave="onWrapperLeave"
+               @mousedown="onWrapperMouseDown">
             <img v-if="fullResImageUrl"
                  ref="mainImgRef"
                  :src="fullResImageUrl"
                  :alt="currentImage.name"
                  class="main-image"
+                 :style="{ cursor: mainImageCursor }"
                  @click="onImageClick"
                  @mousedown="onMainImageMouseDown"
+                 @dblclick="onImageDblClick"
                  @load="onMainImageLoad" />
             <!-- 框选模式：未拖拽时整张图被半透明灰色遮罩覆盖 -->
             <div v-if="areaSelectActive && !liveSelectionDisplayRect" class="area-mask-full"></div>
@@ -348,6 +355,14 @@ const hoveringImage = ref(false)
 const mainImgRef = ref(null)
 const currentImageNaturalDims = ref(null)
 const areaSelectionsByName = ref({})
+
+// Zoom & pan state
+const zoomLevel = ref(1)
+const panOffsetX = ref(0)
+const panOffsetY = ref(0)
+const isPanning = ref(false)
+const panStartMouse = ref({ x: 0, y: 0 })
+const panStartOffset = ref({ x: 0, y: 0 })
 
 const AREA_SESSION_STORAGE_KEY = 'photoEditAreaSelections'
 
@@ -793,6 +808,83 @@ const handleTabChange = (tabId) => {
   // 高度变化由 ResizeObserver 自动捕获，这里无需手动触发
 }
 
+// Zoom & pan ──────────────────────────────────────────────────────────
+
+const imageWrapperStyle = computed(() => ({
+  transform: `translate(${panOffsetX.value}px, ${panOffsetY.value}px) scale(${zoomLevel.value})`,
+  transformOrigin: 'center center',
+}))
+
+const mainImageCursor = computed(() => {
+  if (eyedropperActive.value || areaSelectActive.value) return undefined
+  if (zoomLevel.value > 1) return isPanning.value ? 'grabbing' : 'grab'
+  return undefined
+})
+
+function onImageDisplayWheel(e) {
+  if (!e.ctrlKey && !e.metaKey) return
+  if (areaSelectActive.value || eyedropperActive.value) return
+  e.preventDefault()
+
+  const display = e.currentTarget
+  const rect = display.getBoundingClientRect()
+  const mx = e.clientX - rect.left - rect.width / 2
+  const my = e.clientY - rect.top - rect.height / 2
+
+  const delta = -e.deltaY * 0.005
+  const newZoom = Math.max(0.5, Math.min(5, zoomLevel.value * (1 + delta)))
+
+  const ratio = newZoom / zoomLevel.value
+  panOffsetX.value = mx - (mx - panOffsetX.value) * ratio
+  panOffsetY.value = my - (my - panOffsetY.value) * ratio
+  zoomLevel.value = newZoom
+}
+
+function onWrapperMouseDown(e) {
+  if (e.button !== 0) return
+  if (eyedropperActive.value || areaSelectActive.value) return
+  if (zoomLevel.value <= 1) return
+  e.preventDefault()
+  e.stopPropagation()
+  isPanning.value = true
+  panStartMouse.value = { x: e.clientX, y: e.clientY }
+  panStartOffset.value = { x: panOffsetX.value, y: panOffsetY.value }
+  window.addEventListener('mousemove', onPanMouseMove)
+  window.addEventListener('mouseup', onPanMouseUp)
+}
+
+function onPanMouseMove(e) {
+  if (!isPanning.value) return
+  panOffsetX.value = panStartOffset.value.x + (e.clientX - panStartMouse.value.x)
+  panOffsetY.value = panStartOffset.value.y + (e.clientY - panStartMouse.value.y)
+}
+
+function onPanMouseUp() {
+  isPanning.value = false
+  window.removeEventListener('mousemove', onPanMouseMove)
+  window.removeEventListener('mouseup', onPanMouseUp)
+}
+
+function resetZoom() {
+  zoomLevel.value = 1
+  panOffsetX.value = 0
+  panOffsetY.value = 0
+}
+
+function onImageDblClick() {
+  if (eyedropperActive.value || areaSelectActive.value) return
+  if (zoomLevel.value === 1) {
+    // Zoom to 2x centered on the click point — reset (already at 1x) is a no-op,
+    // but dblclick still shouldn't interfere with eyedropper / area-select.
+    // For simplicity, just center-zoom to 2x.
+    zoomLevel.value = 2
+    panOffsetX.value = 0
+    panOffsetY.value = 0
+  } else {
+    resetZoom()
+  }
+}
+
 let operationAreaResizeObserver = null
 
 const goBack = () => {
@@ -807,6 +899,7 @@ const goBack = () => {
 
 const selectImage = (index) => {
   currentIndex.value = index
+  resetZoom()
 }
 
 // 旋转已存白点采样区，使其在新方向的图像坐标系中跟随同一块画面内容。
@@ -1399,6 +1492,28 @@ function handleKeydown(event) {
     return
   }
 
+  // Ctrl/Cmd +/-/0: zoom main image instead of browser page
+  if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+' || event.key === '-' || event.key === '0')) {
+    if (areaSelectActive.value || eyedropperActive.value) return
+    event.preventDefault()
+    if (event.key === '0') {
+      resetZoom()
+    } else if (event.key === '-' || event.key === '_') {
+      const newZoom = Math.max(0.5, zoomLevel.value / 1.2)
+      const ratio = newZoom / zoomLevel.value
+      panOffsetX.value = panOffsetX.value * ratio
+      panOffsetY.value = panOffsetY.value * ratio
+      zoomLevel.value = newZoom
+    } else {
+      const newZoom = Math.min(5, zoomLevel.value * 1.2)
+      const ratio = newZoom / zoomLevel.value
+      panOffsetX.value = panOffsetX.value * ratio
+      panOffsetY.value = panOffsetY.value * ratio
+      zoomLevel.value = newZoom
+    }
+    return
+  }
+
   // Check if this is one of our navigation shortcuts
   const isNavigationShortcut = (event.key === 'ArrowUp' && event.ctrlKey) ||
     (event.key === 'ArrowDown' && event.ctrlKey) ||
@@ -1687,6 +1802,8 @@ onUnmounted(() => {
   // 防御：组件卸载时清掉拖拽期间挂在 window 上的临时监听器
   window.removeEventListener('mousemove', onAreaMouseMoveWindow)
   window.removeEventListener('mouseup', onAreaMouseUpWindow)
+  window.removeEventListener('mousemove', onPanMouseMove)
+  window.removeEventListener('mouseup', onPanMouseUp)
   if (operationAreaResizeObserver) {
     operationAreaResizeObserver.disconnect()
     operationAreaResizeObserver = null
