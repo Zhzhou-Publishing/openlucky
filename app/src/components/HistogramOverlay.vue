@@ -39,17 +39,23 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
 })
 
+const PAD_X = 8
+const PAD_Y = 4
+
 const x = ref(props.initialX)
 const y = ref(props.initialY)
 const dragging = ref(false)
 let dragOffsetX = 0
 let dragOffsetY = 0
 
+const outerW = computed(() => props.width + PAD_X * 2)
+const outerH = computed(() => props.height + PAD_Y * 2)
+
 const overlayStyle = computed(() => ({
   left: `${x.value}px`,
   top: `${y.value}px`,
-  width: `${props.width}px`,
-  height: `${props.height}px`,
+  width: `${outerW.value}px`,
+  height: `${outerH.value}px`,
 }))
 
 function clamp(v, min, max) {
@@ -96,8 +102,8 @@ function onMouseMove(e) {
   if (!dragging.value) return
   // Keep the overlay inside the viewport so it can't get dragged offscreen.
   const margin = 4
-  x.value = clamp(e.clientX - dragOffsetX, margin, window.innerWidth - props.width - margin)
-  y.value = clamp(e.clientY - dragOffsetY, margin, window.innerHeight - props.height - margin)
+  x.value = clamp(e.clientX - dragOffsetX, margin, window.innerWidth - outerW.value - margin)
+  y.value = clamp(e.clientY - dragOffsetY, margin, window.innerHeight - outerH.value - margin)
 }
 
 function onMouseUp() {
@@ -123,6 +129,11 @@ onUnmounted(() => {
   user-select: none;
   box-sizing: border-box;
   overflow: hidden;
+  padding: 4px 8px;
+}
+
+:global(:root.dark .histogram-overlay) {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .histogram-overlay.dragging {
