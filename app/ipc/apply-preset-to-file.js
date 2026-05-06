@@ -6,7 +6,7 @@ const {
   RAW_EXTENSIONS,
   TIFF_EXTENSIONS,
   checkExtension,
-  getOpenLuckyPath
+  buildOpenLuckyCommand
 } = require('../shared/utils')
 const { createLogger } = require('../shared/logger')
 
@@ -61,13 +61,14 @@ function register() {
         finalOutputPath += '.tif'
       }
 
-      const command = getOpenLuckyPath()
-      const args = ['filmparam', '--input', inputFilePath, '--output', finalOutputPath, '--param', paramsString]
+      const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
+      const args = [...prefixArgs, 'filmparam', '--input', inputFilePath, '--output', finalOutputPath, '--param', paramsString]
       logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('preset-to-file-started', { message: 'Processing started' })
 
       const child = spawn(command, args, {
+        ...spawnOptions,
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true
       })

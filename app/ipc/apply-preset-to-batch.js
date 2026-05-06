@@ -7,7 +7,7 @@ const {
   RAW_EXTENSIONS,
   TIFF_EXTENSIONS,
   checkExtension,
-  getOpenLuckyPath
+  buildOpenLuckyCommand
 } = require('../shared/utils')
 const { createLogger } = require('../shared/logger')
 
@@ -81,8 +81,8 @@ function register() {
             outputFilePath += '.tif'
           }
 
-          const command = getOpenLuckyPath()
-          const args = ['filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString, '--rotate-clockwise', rotateClockwise.toString()]
+          const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
+          const args = [...prefixArgs, 'filmparam', '--input', inputFilePath, '--output', outputFilePath, '--param', paramsString, '--rotate-clockwise', rotateClockwise.toString()]
 
           const presetArea = presetParams.area
           const presetBasis = presetParams.area_basis
@@ -116,6 +116,7 @@ function register() {
 
           await new Promise((resolve) => {
             const child = spawn(command, args, {
+              ...spawnOptions,
               stdio: ['pipe', 'pipe', 'pipe'],
               windowsHide: true
             })

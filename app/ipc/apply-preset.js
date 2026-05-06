@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron')
 const { spawn } = require('child_process')
-const { getOpenLuckyPath } = require('../shared/utils')
+const { buildOpenLuckyCommand } = require('../shared/utils')
 const { createLogger } = require('../shared/logger')
 
 const logger = createLogger('ApplyPreset')
@@ -8,13 +8,14 @@ const logger = createLogger('ApplyPreset')
 function register() {
   ipcMain.on('apply-preset', async (event, { inputPath, outputPath, preset }) => {
     try {
-      const command = getOpenLuckyPath()
-      const args = ['filmbatch', '--input', inputPath, '--output', outputPath, '--preset', preset]
+      const { command, prefixArgs, spawnOptions } = buildOpenLuckyCommand()
+      const args = [...prefixArgs, 'filmbatch', '--input', inputPath, '--output', outputPath, '--preset', preset]
       logger.info(`[openlucky] Executing: ${command} ${args.join(' ')}`)
 
       event.sender.send('preset-apply-started', { message: 'Processing started' })
 
       const child = spawn(command, args, {
+        ...spawnOptions,
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true
       })
