@@ -126,6 +126,98 @@ def parse_area_basis(s):
     return (w, h)
 
 
+def _parse_curve_strength(token, full_input):
+    """Parse 'auto:STRENGTH' suffix on the curve slot. Returns float in [0, 1]."""
+    rest = token[len('auto:'):].strip()
+    try:
+        strength = float(rest)
+    except ValueError:
+        raise ValueError(
+            f"Invalid --tone strength. Expected 'auto:FLOAT', got: {full_input!r}"
+        )
+    if not (0.0 <= strength <= 1.0):
+        raise ValueError(
+            f"Invalid --tone strength: must be in [0, 1], got {strength}"
+        )
+    return strength
+
+
+def parse_tone(s):
+    """Parse '--tone' argument into a 2-tuple consumed by process_film.
+
+    Per-slot modes — pivot and curve can independently be auto or manual:
+      - 'pivot,curve'     : both manual.            e.g. '0.4,0.7'
+      - 'auto,curve'      : auto pivot, manual k.   e.g. 'auto,1.2'
+      - 'pivot,auto'      : manual pivot, auto k.   e.g. '0.4,auto'
+      - 'pivot,auto:STR'  : manual pivot, auto k softened by STR in [0,1].
+      - 'auto,auto'       : both auto.
+      - 'auto'            : shortcut for 'auto,auto'.
+      - 'auto:STR'        : shortcut for 'auto,auto:STR'.
+
+    Strength suffix is only meaningful on the curve slot (it softens k toward
+    1.0); accepting it on the pivot slot would be a no-op and is rejected.
+
+    Returns a 2-tuple where each slot is either a float (manual) or a string
+    sentinel ('auto' or 'auto:STR'). process_film inspects these and calls
+    auto_pk() if either slot is auto. Returns None when input is None.
+    """
+    if s is None:
+        return None
+    s = s.strip()
+
+    # Shortcuts: standalone 'auto' / 'auto:STR' mean both slots auto
+    if s == 'auto':
+        return ('auto', 'auto')
+    if s.startswith('auto:') and ',' not in s:
+        strength = _parse_curve_strength(s, s)
+        return ('auto', f'auto:{strength}')
+
+    parts = [p.strip() for p in s.split(',')]
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid --tone format. Expected 'pivot,curve' or 'auto[:strength]', got: {s!r}"
+        )
+    pivot_raw, curve_raw = parts
+
+    if pivot_raw == 'auto':
+        pivot = 'auto'
+    elif pivot_raw.startswith('auto:'):
+        # Strength has no effect on p — reject to avoid silent confusion
+        raise ValueError(
+            f"Invalid --tone pivot: 'auto:STRENGTH' is only valid on the curve slot, got {pivot_raw!r}"
+        )
+    else:
+        try:
+            pivot = float(pivot_raw)
+        except ValueError:
+            raise ValueError(
+                f"Invalid --tone pivot. Expected float or 'auto', got: {pivot_raw!r}"
+            )
+        if not (0.01 <= pivot <= 0.99):
+            raise ValueError(
+                f"Invalid --tone pivot: must be in [0.01, 0.99], got {pivot}"
+            )
+
+    if curve_raw == 'auto':
+        curve = 'auto'
+    elif curve_raw.startswith('auto:'):
+        strength = _parse_curve_strength(curve_raw, s)
+        curve = f'auto:{strength}'
+    else:
+        try:
+            curve = float(curve_raw)
+        except ValueError:
+            raise ValueError(
+                f"Invalid --tone curve. Expected float or 'auto[:strength]', got: {curve_raw!r}"
+            )
+        if not (0.05 <= curve <= 5.0):
+            raise ValueError(
+                f"Invalid --tone curve: must be in [0.05, 5.0], got {curve}"
+            )
+
+    return (pivot, curve)
+
+
 def parse_white_balance(s):
     """Parse '--white-balance' into the value process_film expects.
 
@@ -222,6 +314,8 @@ def main():
                              help='Exposure compensation in EV (default: 0.0)')
     film_parser.add_argument('--white-balance', '-w', required=False, default='auto',
                              help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
+    film_parser.add_argument('--tone', required=False, default=None,
+                             help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
 
     # filmbatch subcommand
     filmbatch_parser = subparsers.add_parser('filmbatch', help='Batch process film negatives')
@@ -241,6 +335,8 @@ def main():
                                    help='Exposure compensation in EV (default: 0.0)')
     filmbatch_parser.add_argument('--white-balance', '-w', required=False, default='auto',
                                    help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
+    filmbatch_parser.add_argument('--tone', required=False, default=None,
+                                   help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
 
     # filmparam subcommand
     filmparam_parser = subparsers.add_parser('filmparam', help='Film negative to positive conversion with custom parameters')
@@ -261,6 +357,8 @@ def main():
                                    help='Exposure compensation in EV (default: 0.0)')
     filmparam_parser.add_argument('--white-balance', '-w', required=False, default='auto',
                                    help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
+    filmparam_parser.add_argument('--tone', required=False, default=None,
+                                   help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
 
     # filmparambatch subcommand
     filmparambatch_parser = subparsers.add_parser('filmparambatch', help='Batch process film negatives with custom parameters')
@@ -281,6 +379,8 @@ def main():
                                          help='Exposure compensation in EV (default: 0.0)')
     filmparambatch_parser.add_argument('--white-balance', '-w', required=False, default='auto',
                                          help='White balance mode: "none", "auto", or "x,y" with x=temperature, y=tint, both in [-50, 50] (default: auto)')
+    filmparambatch_parser.add_argument('--tone', required=False, default=None,
+                                         help='Tone curve as "pivot,curve". pivot ∈ [0.01,0.99], curve ∈ [0.05,5.0]: <1 = shadow lift + highlight compression, =1 = linear, >1 = contrast S-curve. Default 0.5,0.5.')
 
     # raw2tiff subcommand
     raw2tiff_parser = subparsers.add_parser('raw2tiff', help='RAW to TIFF format conversion')
@@ -338,9 +438,7 @@ def main():
                                   help='Gamma applied before histogramming (default: 1.0; suggest 2.2 for RAW)')
     histogram_parser.add_argument('--mode', '-m', default='log',
                                   choices=['log', 'linear'],
-                                  help='Y-axis normalization mode (default: log). Ignored when --normalization is unset.')
-    histogram_parser.add_argument('--normalization', '-n', type=int, default=None,
-                                  help='Y-axis normalization target (e.g., 256). Leave unset to output raw counts.')
+                                  help='Per-bin transform applied to counts (default: log). The renderer scales data by visual_meta.suggested_max_y.')
     histogram_parser.add_argument('--downsampling', '-d', type=int, default=None,
                                   help='X-axis bin count after downsampling. Power of 2 in [256, 65536]. Leave unset to keep native bit depth.')
     histogram_parser.add_argument('--area', '-a', required=False, default=None,
@@ -382,6 +480,7 @@ def main():
         try:
             roi = parse_area(args.area)
             white_balance = parse_white_balance(args.white_balance)
+            tone = parse_tone(args.tone)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -452,6 +551,8 @@ def main():
             exposure_ev_mode=args.exposure_mode,
             exposure_ev=args.exposure,
             white_balance=white_balance,
+            tone_pivot=tone[0] if tone else 0.5,
+            tone_curve=tone[1] if tone else 0.5,
             is_raw=is_raw
         )
 
@@ -481,6 +582,7 @@ def main():
                     # Add rotate_clockwise to preset_config
                     preset_config['rotate_clockwise'] = args.rotate_clockwise
                     preset_config['white_balance'] = serialize_white_balance(white_balance)
+                    preset_config['tone'] = f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}"
                     # Use forward slashes in path to avoid double backslashes in JSON
                     if args.output is not None:
                         output_path_for_preset = Path(args.output)
@@ -493,6 +595,7 @@ def main():
         try:
             roi = parse_area(args.area)
             white_balance = parse_white_balance(args.white_balance)
+            tone = parse_tone(args.tone)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -582,6 +685,8 @@ def main():
                     exposure_ev_mode=args.exposure_mode,
                     exposure_ev=args.exposure,
                     white_balance=white_balance,
+                    tone_pivot=tone[0] if tone else 0.5,
+                    tone_curve=tone[1] if tone else 0.5,
                 )
 
 
@@ -601,6 +706,7 @@ def main():
                 # Add rotate_clockwise
                 presets_by_dir[dir_key][input_file.name]['rotate_clockwise'] = args.rotate_clockwise
                 presets_by_dir[dir_key][input_file.name]['white_balance'] = serialize_white_balance(white_balance)
+                presets_by_dir[dir_key][input_file.name]['tone'] = f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}"
             except Exception as e:
                 print(e)
                 fail_count += 1
@@ -629,6 +735,7 @@ def main():
             roi = parse_area(args.area)
             area_basis = parse_area_basis(args.area_basis)
             white_balance = parse_white_balance(args.white_balance)
+            tone = parse_tone(args.tone)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -707,6 +814,8 @@ def main():
             exposure_ev_mode=args.exposure_mode,
             exposure_ev=args.exposure,
             white_balance=white_balance,
+            tone_pivot=tone[0] if tone else 0.5,
+            tone_curve=tone[1] if tone else 0.5,
             is_raw=is_raw
         )
 
@@ -743,6 +852,7 @@ def main():
             'exposure_ev_mode': args.exposure_mode,
             'exposure_ev': args.exposure,
             'white_balance': serialize_white_balance(white_balance),
+            'tone': f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}",
         }
         # Persist white-point ROI + basis so a later batch save against the
         # original full-res file can replay the same sampling window.
@@ -764,6 +874,7 @@ def main():
             roi = parse_area(args.area)
             area_basis = parse_area_basis(args.area_basis)
             white_balance = parse_white_balance(args.white_balance)
+            tone = parse_tone(args.tone)
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -836,6 +947,7 @@ def main():
             'exposure_ev_mode': args.exposure_mode,
             'exposure_ev': args.exposure,
             'white_balance': serialize_white_balance(white_balance),
+            'tone': f"{tone[0] if tone else 0.5},{tone[1] if tone else 0.5}",
         }
         # Persist ROI + basis alongside the per-file preset so a later
         # batch save against the original full-res file can replay sampling.
@@ -878,6 +990,8 @@ def main():
                     exposure_ev_mode=args.exposure_mode,
                     exposure_ev=args.exposure,
                     white_balance=white_balance,
+                    tone_pivot=tone[0] if tone else 0.5,
+                    tone_curve=tone[1] if tone else 0.5,
                 )
                 success_count += 1
 
@@ -1048,7 +1162,6 @@ def main():
                     hist_type=args.type,
                     gamma=args.gamma,
                     mode=args.mode,
-                    normalization=args.normalization,
                     downsampling=args.downsampling,
                     area=hist_area,
                 )

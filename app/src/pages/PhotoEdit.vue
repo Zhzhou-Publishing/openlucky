@@ -74,6 +74,7 @@
           { id: 'basic', label: $t('photoEdit.basicTab') },
           { id: 'dye_concentration_correction', label: $t('photoEdit.advancedTab') },
           { id: 'exposure', label: $t('photoEdit.exposureTab') },
+          { id: 'tone', label: $t('photoEdit.toneTab') },
           { id: 'white_balance', label: $t('photoEdit.whiteBalanceTab') }
         ]" :default-tab="'basic'" @tab-change="handleTabChange">
           <template #default="{ activeTab }">
@@ -117,6 +118,40 @@
               <NumberInput :label="$t('photoEdit.exposureTab')" v-model="exposure" :max="3.0" :min="-3.0"
                 :step-value="0.1" :disabled="isAllImagesAffected || isCurrentImageAffected"
                 />
+            </div>
+
+            <!-- Tone Adjustment Tab -->
+            <div v-if="activeTab === 'tone'" class="tab-content tone-tab">
+              <div class="tone-rows">
+                <div class="tone-row">
+                  <Slider class="tone-row-slider" :label="$t('photoEdit.tonePivot')"
+                    v-model="tonePivotUi" :min="-100" :max="100" :step="1"
+                    :popover-left="$t('photoEdit.tonePivotLeft')"
+                    :popover-right="$t('photoEdit.tonePivotRight')"
+                    :disabled="tonePivotAuto || isAllImagesAffected || isCurrentImageAffected" />
+                  <NumberInput v-model="tonePivotUi" :max="100" :min="-100" :step-value="1"
+                    :disabled="tonePivotAuto || isAllImagesAffected || isCurrentImageAffected" />
+                  <label class="tone-auto-label">
+                    <input type="checkbox" v-model="tonePivotAuto"
+                      :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                    {{ $t('photoEdit.toneAuto') }}
+                  </label>
+                </div>
+                <div class="tone-row">
+                  <Slider class="tone-row-slider" :label="$t('photoEdit.toneCurve')"
+                    v-model="toneCurveUi" :min="-100" :max="100" :step="1"
+                    :popover-left="$t('photoEdit.toneCurveLeft')"
+                    :popover-right="$t('photoEdit.toneCurveRight')"
+                    :disabled="toneCurveAuto || isAllImagesAffected || isCurrentImageAffected" />
+                  <NumberInput v-model="toneCurveUi" :max="100" :min="-100" :step-value="1"
+                    :disabled="toneCurveAuto || isAllImagesAffected || isCurrentImageAffected" />
+                  <label class="tone-auto-label">
+                    <input type="checkbox" v-model="toneCurveAuto"
+                      :disabled="isAllImagesAffected || isCurrentImageAffected" />
+                    {{ $t('photoEdit.toneAuto') }}
+                  </label>
+                </div>
+              </div>
             </div>
 
             <!-- White Balance Tab -->
@@ -221,6 +256,52 @@ const exposure = ref(0)
 const whiteBalanceAuto = ref(true)
 const whiteBalanceTemp = ref(0)
 const whiteBalanceTint = ref(0)
+// 色调调整 UI 数值 [-100, 100]。重心 0 = 数学 p=0.5（对称中点），
+// 反差 0 = 数学 k=1.0（恒等无变化）；两个滑块都用 0 居中表达"原片直出"。
+const tonePivotUi = ref(0)
+const toneCurveUi = ref(0)
+// 重心 / 反差各自独立的 auto 开关。勾选后对应滑块禁用，序列化成 CLI
+// --tone 的 'auto' 槽位，由 CLI 端 auto_pk 按直方图反推该参数。
+// 默认开启：多数胶片冲扫直接吃自动值即可，需要手动微调再取消勾选。
+const tonePivotAuto = ref(true)
+const toneCurveAuto = ref(true)
+
+// UI [-100, 100] → 内部 p ∈ [0.20, 0.80]（线性映射）
+function tonePivotUiToInternal(ui) {
+  return 0.50 + ui * 0.003
+}
+function tonePivotInternalToUi(p) {
+  if (typeof p !== 'number') return 0
+  return Math.max(-100, Math.min(100, Math.round((p - 0.50) / 0.003)))
+}
+
+// UI [-100, 100] → 内部 k ∈ [0.5, 3.0]（三段线性，0 居中代表 k=1.0）
+// -100→0.5, 0→1.0, +50→1.8, +100→3.0
+function toneCurveUiToInternal(ui) {
+  if (ui <= 0) return 1.0 + ui * 0.005       // [-100, 0]  → [0.5, 1.0]
+  if (ui <= 50) return 1.0 + ui * 0.016      // [0, 50]    → [1.0, 1.8]
+  return 1.8 + (ui - 50) * 0.024             // [50, 100]  → [1.8, 3.0]
+}
+function toneCurveInternalToUi(k) {
+  if (typeof k !== 'number') return 0
+  let ui
+  if (k <= 1.0) ui = (k - 1.0) / 0.005
+  else if (k <= 1.8) ui = (k - 1.0) / 0.016
+  else ui = 50 + (k - 1.8) / 0.024
+  return Math.max(-100, Math.min(100, Math.round(ui)))
+}
+
+// 序列化成 CLI --tone 期望的字符串。每个槽位独立：勾了 auto 就给 'auto'，
+// 否则给数值。CLI parse_tone 接受 'auto,K' / 'P,auto' / 'auto,auto' / 'P,K'。
+function currentToneForIpc() {
+  const pivotSlot = tonePivotAuto.value
+    ? 'auto'
+    : tonePivotUiToInternal(tonePivotUi.value).toFixed(4)
+  const curveSlot = toneCurveAuto.value
+    ? 'auto'
+    : toneCurveUiToInternal(toneCurveUi.value).toFixed(4)
+  return `${pivotSlot},${curveSlot}`
+}
 // 渐变贴在 slider 轨道上，给用户一个色温/色调拉杆方向的视觉锚点：
 //   色温 -50 偏冷蓝 / 0 中性 / +50 偏暖琥珀
 //   色调 -50 偏品红 / 0 中性 / +50 偏绿（CLI 里 +y 是抬绿色增益）
@@ -232,13 +313,12 @@ const presetsDataLoaded = ref(false)
 const pendingRotation = ref(null) // null | { imageName: string, direction: 'cw' | 'ccw' }
 
 // 直方图叠加层：每次主图加载完成或被 apply 刷新后重算一次。
-// 数据是 [R, G, B, L] 四数组，已由 CLI 用 log + n=100 规约到画布像素，
-// HistogramOverlay 拿到直接画 polyline，不再做缩放。
+// CLI 现在返回 { data: { red, green, blue, luminosity }, visual_meta: { suggested_max_y, ... } }，
+// HistogramOverlay 用 suggested_max_y 把曲线归一化到 SVG 高度，不再依赖前端塞死 -n。
 //
 // 把目录+文件名透传给 main，由 main 端读最新 .preset.json 决定取哪个
 // 版本（apply 后的 output_dir 或工作目录原图），避免依赖 renderer 这边
 // 可能滞后的 currentImage.path。
-const HISTOGRAM_HEIGHT = 100
 const HISTOGRAM_BINS = 256
 const histogramData = ref(null)
 let histogramRequestSeq = 0
@@ -306,7 +386,6 @@ async function fetchHistogramFor(directoryPath, filename, area) {
     const result = await ipcRenderer.invoke('compute-histogram', {
       directoryPath,
       filename,
-      height: HISTOGRAM_HEIGHT,
       downsampling: HISTOGRAM_BINS,
       area: area || null,
     })
@@ -634,7 +713,11 @@ function copyParams() {
     contrast: input5.value,
     contrast_r: contrastR.value,
     contrast_g: contrastG.value,
-    contrast_b: contrastB.value
+    contrast_b: contrastB.value,
+    tone_pivot_ui: tonePivotUi.value,
+    tone_curve_ui: toneCurveUi.value,
+    tone_pivot_auto: tonePivotAuto.value,
+    tone_curve_auto: toneCurveAuto.value,
   }
 }
 
@@ -649,6 +732,10 @@ function pasteParams() {
   contrastR.value = c.contrast_r
   contrastG.value = c.contrast_g
   contrastB.value = c.contrast_b
+  tonePivotUi.value = c.tone_pivot_ui ?? 0
+  toneCurveUi.value = c.tone_curve_ui ?? 0
+  tonePivotAuto.value = c.tone_pivot_auto ?? false
+  toneCurveAuto.value = c.tone_curve_auto ?? false
 }
 
 const presetModalOpen = ref(false)
@@ -677,8 +764,51 @@ function applyPresetFromModal() {
   contrastR.value = preset.contrast_r ?? 1.0
   contrastG.value = preset.contrast_g ?? 1.0
   contrastB.value = preset.contrast_b ?? 1.0
+  applyTonePresetToUi(preset)
   presetModalOpen.value = false
   apply()
+}
+
+// Pull tone back from a preset entry (.preset.json or globalPreset). Tone is
+// stored as a CLI --tone string; each slot is either a number or 'auto'
+// (an 'auto:STRENGTH' suffix collapses to the auto flag — the UI doesn't
+// expose strength). Missing/invalid → fall back to the default (both auto).
+function applyTonePresetToUi(preset) {
+  const resetToDefault = () => {
+    tonePivotAuto.value = true
+    toneCurveAuto.value = true
+    tonePivotUi.value = 0
+    toneCurveUi.value = 0
+  }
+  const raw = preset?.tone
+  if (typeof raw !== 'string' || raw.length === 0) {
+    resetToDefault()
+    return
+  }
+  const parts = raw.split(',').map(s => s.trim())
+  if (parts.length !== 2) {
+    resetToDefault()
+    return
+  }
+  const isAuto = (slot) => slot === 'auto' || slot.startsWith('auto:')
+
+  if (isAuto(parts[0])) {
+    tonePivotAuto.value = true
+    tonePivotUi.value = 0
+  } else {
+    const p = parseFloat(parts[0])
+    tonePivotAuto.value = false
+    tonePivotUi.value = Number.isFinite(p) ? tonePivotInternalToUi(p) : 0
+  }
+
+  if (isAuto(parts[1])) {
+    toneCurveAuto.value = true
+    toneCurveUi.value = 0
+  } else {
+    const k = parseFloat(parts[1])
+    toneCurveAuto.value = false
+    toneCurveUi.value = Number.isFinite(k) ? toneCurveInternalToUi(k) : 0
+  }
 }
 
 const ctxMenuItems = computed(() => {
@@ -1007,6 +1137,10 @@ const resetImage = () => {
     whiteBalanceAuto.value = true
     whiteBalanceTemp.value = 0
     whiteBalanceTint.value = 0
+    tonePivotUi.value = 0
+    toneCurveUi.value = 0
+    tonePivotAuto.value = true
+    toneCurveAuto.value = true
     rotateClockwiseMap.value[imageName] = 0
     // Clear area selection
     const next = { ...areaSelectionsByName.value }
@@ -1106,7 +1240,8 @@ const apply = () => {
       area: areaForIpc,
       areaBasis: areaBasisForIpc,
       exposure: exposure.value,
-      whiteBalance: currentWhiteBalanceForIpc()
+      whiteBalance: currentWhiteBalanceForIpc(),
+      tone: currentToneForIpc()
     })
 
     // Handle response
@@ -1218,7 +1353,8 @@ const applyAll = () => {
       area: areaForIpc,
       areaBasis: areaBasisForIpc,
       exposure: exposure.value,
-      whiteBalance: currentWhiteBalanceForIpc()
+      whiteBalance: currentWhiteBalanceForIpc(),
+      tone: currentToneForIpc()
     })
 
     // Handle response
@@ -1566,6 +1702,7 @@ const loadPresetForCurrentImage = () => {
     contrastR.value = preset.contrast_r ?? 1.0
     contrastG.value = preset.contrast_g ?? 1.0
     contrastB.value = preset.contrast_b ?? 1.0
+    applyTonePresetToUi(preset)
     rotateClockwiseMap.value[currentFileName.value] = preset.rotate_clockwise || 0
   } else {
     // Reset to default if no preset found
@@ -1577,6 +1714,10 @@ const loadPresetForCurrentImage = () => {
     contrastR.value = 1.0
     contrastG.value = 1.0
     contrastB.value = 1.0
+    tonePivotUi.value = 0
+    toneCurveUi.value = 0
+    tonePivotAuto.value = true
+    toneCurveAuto.value = true
     rotateClockwiseMap.value[currentFileName.value] = 0
 
     // Auto-prompt the apply-preset modal once we know .preset.json was
@@ -2108,6 +2249,49 @@ onUnmounted(() => {
 
 .wb-row-slider {
   flex: 1;
+}
+
+.tab-content.tone-tab {
+  gap: 24px;
+  align-items: center;
+}
+
+.tone-rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 560px;
+  min-width: 240px;
+}
+
+.tone-row {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.tone-row-slider {
+  flex: 1;
+}
+
+.tone-auto-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tone-auto-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.tone-auto-label input[type="checkbox"]:disabled {
+  cursor: not-allowed;
 }
 
 .action-buttons {
