@@ -7,7 +7,7 @@ import cv2
 from cli.constants.image_formats import RAW_EXTENSIONS
 from cli.lib.lut import apply_lut
 from cli.lib.curve.s_curve import auto_pk, power_curve_raw
-from cli.lib.process_film_functions.gamma_alignment import apply_midtone_alignment
+from cli.lib.process_film_functions.gamma_alignment import apply_gamma_alignment
 
 
 def resolve_wp_roi_to_actual(roi, basis_wh, rotate_clockwise, actual_wh):
@@ -303,7 +303,7 @@ def process_film_bytestream_with_params(
     # --- 插入中间调对齐逻辑 ---
     # 加法位移实现：在 sin² 权重下把每通道中位数朝目标拉近，幅度被 SHIFT_CAP
     # 截断；端点严格保留。user_ev_bias 仅在 mode='ev_target' 时起作用。
-    img = apply_midtone_alignment(
+    img = apply_gamma_alignment(
         img,
         roi=(wp_roi_x1, wp_roi_y1, wp_roi_x2, wp_roi_y2),
         user_ev_bias=0.0,  # 拍摄意图需要另外传入参数！！！
